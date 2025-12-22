@@ -12,7 +12,7 @@ services:
       - /mnt/Storage-SSD/development/development_environment/YA-WAMF/config:/config
       - /mnt/Storage-SSD/development/development_environment/YA-WAMF/data:/data
     networks:
-      dev_bridge:
+      general_brg:
     ports:
       - "8946:8000"
     environment:
@@ -35,7 +35,7 @@ services:
     container_name: wamf-frontend
     restart: unless-stopped
     networks:
-      dev_bridge:
+      general_brg:
     ports:
       - "8947:80"
     depends_on:
@@ -47,5 +47,5 @@ services:
       retries: 3
 #-----------------------------------------------
 networks:
-  dev_bridge:
+  general_brg:
     external: true
