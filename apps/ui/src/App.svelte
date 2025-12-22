@@ -4,7 +4,7 @@
   import Events from './lib/components/Events.svelte';
   import Settings from './lib/components/Settings.svelte';
   import Species from './lib/components/Species.svelte';
-  import { fetchEvents } from './lib/api';
+  import { fetchEvents, type Detection } from './lib/api';
 
   // Simple Router state
   let currentRoute = $state('/');
@@ -24,7 +24,7 @@
   });
   
   // Dashboard Logic
-  let detections = $state([]);
+  let detections: Detection[] = $state([]);
   let connected = $state(false);
 
   async function loadInitial() {
