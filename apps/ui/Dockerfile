@@ -6,14 +6,20 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install dependencies (using install instead of ci for broader compatibility)
+# Install dependencies
 RUN npm install --legacy-peer-deps
 
 # Copy source files
 COPY . .
 
-# Run build
-RUN npm run build
+# Show what we have
+RUN echo "=== Files in /app ===" && ls -la
+RUN echo "=== Files in /app/src ===" && ls -la src/
+RUN echo "=== Node version ===" && node --version
+RUN echo "=== NPM version ===" && npm --version
+
+# Run build with full output
+RUN npm run build 2>&1
 
 # Stage 2: Serve
 FROM nginx:alpine
