@@ -7,8 +7,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/wamf-backend
-  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/wamf-frontend
 
 jobs:
   build-backend:
@@ -20,6 +18,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set lowercase owner name
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -34,8 +35,8 @@ jobs:
           context: ./backend
           push: true
           tags: |
-            ${{ env.BACKEND_IMAGE }}:latest
-            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/wamf-backend:latest
+            ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ github.sha }}
 
   build-frontend:
     runs-on: ubuntu-latest
@@ -46,6 +47,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set lowercase owner name
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -60,5 +64,5 @@ jobs:
           context: ./apps/ui
           push: true
           tags: |
-            ${{ env.FRONTEND_IMAGE }}:latest
-            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:latest
+            ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:${{ github.sha }}
