@@ -1,7 +1,5 @@
 import { defineConfig } from 'vite'
-import theSveltePlugin from '@sveltejs/vite-plugin-svelte'
-// Workaround for import issue with default export in some environments
-const svelte = theSveltePlugin.svelte || theSveltePlugin
+import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 // https://vitejs.dev/config/
 export default defineConfig({
