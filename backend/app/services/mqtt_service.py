@@ -13,14 +13,24 @@ class MQTTService:
 
     async def start(self, message_callback):
         self.running = True
+
+        # Validate MQTT settings
+        if not settings.frigate.mqtt_server:
+            log.error("MQTT server not configured. Set FRIGATE__MQTT_SERVER environment variable.")
+            return
+
         while self.running:
             try:
-                async with Client(
-                    hostname=settings.frigate.mqtt_server,
-                    port=settings.frigate.mqtt_port,
-                    username=settings.frigate.mqtt_username,
-                    password=settings.frigate.mqtt_password,
-                ) as client:
+                # Only pass credentials if auth is enabled and credentials are provided
+                client_kwargs = {
+                    "hostname": settings.frigate.mqtt_server,
+                    "port": settings.frigate.mqtt_port,
+                }
+                if settings.frigate.mqtt_auth and settings.frigate.mqtt_username:
+                    client_kwargs["username"] = settings.frigate.mqtt_username
+                    client_kwargs["password"] = settings.frigate.mqtt_password
+
+                async with Client(**client_kwargs) as client:
                     self.client = client
                     topic = f"{settings.frigate.main_topic}/events"
                     await client.subscribe(topic)
