@@ -1,0 +1,61 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import structlog
+import asyncio
+
+from app.database import init_db
+from app.services.mqtt_service import MQTTService
+from app.services.classifier_service import ClassifierService
+from app.services.event_processor import EventProcessor
+from app.routers import events, stream, proxy, settings as settings_router, species
+from contextlib import asynccontextmanager
+
+classifier_service = ClassifierService()
+event_processor = EventProcessor(classifier_service)
+mqtt_service = MQTTService()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await init_db()
+    asyncio.create_task(mqtt_service.start(event_processor.process_mqtt_message))
+    yield
+    # Shutdown
+    await mqtt_service.stop()
+
+app = FastAPI(title="WhosAtMyFeeder API", version="2.0.0", lifespan=lifespan)
+
+# Setup structured logging
+log = structlog.get_logger()
+
+# CORS configuration
+origins = [
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "*" # For dev
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(events.router, prefix="/api")
+app.include_router(stream.router, prefix="/api")
+app.include_router(proxy.router, prefix="/api")
+app.include_router(settings_router.router, prefix="/api")
+app.include_router(species.router, prefix="/api")
+
+@app.get("/health")
+async def health_check():
+    await log.info("Health check requested")
+    return {"status": "ok", "service": "whosatmyfeeder-backend"}
+
+@app.get("/metrics")
+async def metrics():
+    # Placeholder for Prometheus metrics
+    return "events_processed_total 0\n"
+

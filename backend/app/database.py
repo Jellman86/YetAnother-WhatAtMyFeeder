@@ -1,0 +1,28 @@
+import aiosqlite
+import structlog
+from contextlib import asynccontextmanager
+
+log = structlog.get_logger()
+DB_PATH = "/data/speciesid.db"
+
+async def init_db():
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS detections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                detection_time TIMESTAMP NOT NULL,
+                detection_index INTEGER NOT NULL,
+                score REAL NOT NULL,
+                display_name TEXT NOT NULL,
+                category_name TEXT NOT NULL,
+                frigate_event TEXT NOT NULL UNIQUE,
+                camera_name TEXT NOT NULL
+            )
+        """)
+        await db.commit()
+        log.info("Database initialized", path=DB_PATH)
+
+@asynccontextmanager
+async def get_db():
+    async with aiosqlite.connect(DB_PATH) as db:
+        yield db

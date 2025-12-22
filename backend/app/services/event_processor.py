@@ -1,0 +1,123 @@
+import json
+import structlog
+import httpx
+from datetime import datetime
+from io import BytesIO
+from PIL import Image
+
+from app.config import settings
+from app.services.classifier_service import ClassifierService
+from app.services.broadcaster import broadcaster
+from app.database import get_db
+from app.repositories.detection_repository import DetectionRepository, Detection
+
+log = structlog.get_logger()
+
+class EventProcessor:
+    def __init__(self, classifier: ClassifierService):
+        self.classifier = classifier
+        self.http_client = httpx.AsyncClient()
+        self.broadcaster = broadcaster
+
+    async def process_mqtt_message(self, payload: bytes):
+        try:
+            data = json.loads(payload)
+            after = data.get('after', {})
+            
+            if not after:
+                return
+
+            if after.get('label') != 'bird':
+                return
+
+            camera = after.get('camera')
+            if settings.frigate.camera and camera not in settings.frigate.camera:
+                return
+
+            frigate_event = after['id']
+            # Only process if valid event? Original logic processes on every message? 
+            # Original: "if not firstmessage ... (after_data['camera'] in config ...)"
+            # It processes updates. We typically want the best snapshot.
+            
+            # Logic: Get snapshot.
+            frigate_url = settings.frigate.frigate_url
+            snapshot_url = f"{frigate_url}/api/events/{frigate_event}/snapshot.jpg"
+            
+            # TODO: Add specific params logic (crop=1)
+            params = {"crop": 1, "quality": 95}
+            
+            try:
+                response = await self.http_client.get(snapshot_url, params=params)
+                if response.status_code == 200:
+                   image = Image.open(BytesIO(response.content))
+                   
+                   # Classify
+                   results = self.classifier.classify(image)
+                   if not results:
+                       return
+
+                   top = results[0]
+                   score = top['score']
+                   # TODO: Map label to common name
+                   label = top['label'] 
+                   
+                   if score > settings.classification.threshold:
+                       await self._save_detection(after, top, frigate_event)
+                       await self._set_sublabel(frigate_event, label)
+                       
+                else:
+                    await log.warning("Failed to fetch snapshot", url=snapshot_url, status=response.status_code)
+
+            except Exception as e:
+                await log.error("Error processing event", event=frigate_event, error=str(e))
+
+        except json.JSONDecodeError:
+            await log.error("Invalid JSON payload")
+
+    async def _save_detection(self, after, classification, frigate_event):
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            existing = await repo.get_by_frigate_event(frigate_event)
+            
+            score = classification['score']
+            display_name = classification['label']
+            category_name = classification['label'] # Simplify for now
+            timestamp = datetime.fromtimestamp(after['start_time'])
+            
+            detection = Detection(
+                detection_time=timestamp,
+                detection_index=classification['index'],
+                score=score,
+                display_name=display_name,
+                category_name=category_name,
+                frigate_event=frigate_event,
+                camera_name=after['camera']
+            )
+            
+            if existing:
+                if score > existing.score:
+                    await repo.update(detection)
+                    await log.info("Updated detection", event=frigate_event, species=display_name, score=score)
+            else:
+                await repo.create(detection)
+                await log.info("New detection", event=frigate_event, species=display_name, score=score)
+            
+            # Broadcast event
+            await self.broadcaster.broadcast({
+                "type": "detection",
+                "data": {
+                    "frigate_event": frigate_event,
+                    "display_name": display_name,
+                    "score": score,
+                    "timestamp": timestamp.isoformat(),
+                    "camera": after['camera']
+                }
+            })
+
+    async def _set_sublabel(self, event_id: str, sublabel: str):
+        url = f"{settings.frigate.frigate_url}/api/events/{event_id}/sub_label"
+        payload = {"subLabel": sublabel[:20]}
+        try:
+             await self.http_client.post(url, json=payload)
+        except Exception as e:
+             await log.error("Failed to set sublabel", error=str(e))

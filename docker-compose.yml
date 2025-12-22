@@ -1,0 +1,48 @@
+name: ey
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: wamf-backend
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+      - ./config:/config
+      - ./data:/data
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - TZ=America/New_York
+    depends_on:
+      mqtt:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./apps/ui
+      dockerfile: Dockerfile
+    container_name: wamf-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+networks:
+  default:
+    name: wamf-network
