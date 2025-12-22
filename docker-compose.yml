@@ -1,14 +1,13 @@
 name: YetAnother-WhatAtMyFeeder
 #-----------------------------------------------
+# Uses pre-built images from GitHub Container Registry
+#-----------------------------------------------
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ghcr.io/jellman86/wamf-backend:latest
     container_name: wamf-backend
     restart: unless-stopped
     volumes:
-      - ${configlocation}/YA-WAMF/backend:/app
       - ${configlocation}/YA-WAMF/config:/config
       - ${configlocation}/YA-WAMF/data:/data
     networks:
@@ -29,9 +28,7 @@ services:
       retries: 3
 
   frontend:
-    build:
-      context: ./apps/ui
-      dockerfile: Dockerfile
+    image: ghcr.io/jellman86/wamf-frontend:latest
     container_name: wamf-frontend
     restart: unless-stopped
     networks:
