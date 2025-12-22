@@ -3,8 +3,12 @@ FROM node:20-slim as builder
 
 WORKDIR /app
 
+# Increase memory limit for build to avoid OOM on smaller instances
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+
 COPY package.json package-lock.json* ./
-RUN npm install
+# Use npm ci for faster, more reliable, deterministic builds
+RUN npm ci
 
 COPY . .
 RUN npm run build
