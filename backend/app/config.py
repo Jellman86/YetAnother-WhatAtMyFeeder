@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import BaseModel, Field
@@ -41,8 +42,20 @@ class Settings(BaseSettings):
                 # We merge with env vars by creating an instance. 
                 # Pydantic prefers init args > env vars > defaults.
                 # So passing the file data as kwargs overrides env vars. 
-                # If we want env vars to override file (e.g. for docker secrets), we might need a different strategy.
-                # For this app (interactive settings), file usually wins.
+                # FIX: If specific MQTT env vars are present, remove them from 'data' 
+                # so Pydantic uses the env var value instead of the file value.
+                if 'frigate' in data:
+                    if os.environ.get('FRIGATE__MQTT_SERVER'):
+                        data['frigate'].pop('mqtt_server', None)
+                    if os.environ.get('FRIGATE__MQTT_PORT'):
+                        data['frigate'].pop('mqtt_port', None)
+                    if os.environ.get('FRIGATE__MQTT_AUTH'):
+                        data['frigate'].pop('mqtt_auth', None)
+                    if os.environ.get('FRIGATE__MQTT_USERNAME'):
+                        data['frigate'].pop('mqtt_username', None)
+                    if os.environ.get('FRIGATE__MQTT_PASSWORD'):
+                        data['frigate'].pop('mqtt_password', None)
+
                 return cls(**data)
             except Exception as e:
                 print(f"Failed to load config from {CONFIG_PATH}: {e}")
