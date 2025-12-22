@@ -19,6 +19,10 @@ async def init_db():
                 camera_name TEXT NOT NULL
             )
         """)
+        # Add indexes for common query patterns
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_time ON detections(detection_time DESC)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_species ON detections(display_name)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_detections_camera ON detections(camera_name)")
         await db.commit()
         log.info("Database initialized", path=DB_PATH)
 

@@ -1,7 +1,7 @@
 import structlog
 import numpy as np
 import os
-from PIL import Image
+from PIL import Image, ImageOps
 try:
     # Try importing typical TFLite runtimes
     import tflite_runtime.interpreter as tflite
@@ -69,8 +69,6 @@ class ClassifierService:
         delta_w = max_size[0] - image.size[0]
         delta_h = max_size[1] - image.size[1]
         padding = (delta_w // 2, delta_h // 2, delta_w - (delta_w // 2), delta_h - (delta_h // 2))
-        
-        from PIL import ImageOps
         padded_image = ImageOps.expand(image, padding, fill='black')
         
         # Convert to numpy and normalize if needed (checking input details)

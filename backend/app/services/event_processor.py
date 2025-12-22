@@ -47,7 +47,7 @@ class EventProcessor:
             params = {"crop": 1, "quality": 95}
             
             try:
-                response = await self.http_client.get(snapshot_url, params=params)
+                response = await self.http_client.get(snapshot_url, params=params, timeout=30.0)
                 if response.status_code == 200:
                    image = Image.open(BytesIO(response.content))
                    
@@ -66,13 +66,13 @@ class EventProcessor:
                        await self._set_sublabel(frigate_event, label)
                        
                 else:
-                    await log.warning("Failed to fetch snapshot", url=snapshot_url, status=response.status_code)
+                    log.warning("Failed to fetch snapshot", url=snapshot_url, status=response.status_code)
 
             except Exception as e:
-                await log.error("Error processing event", event=frigate_event, error=str(e))
+                log.error("Error processing event", event=frigate_event, error=str(e))
 
         except json.JSONDecodeError:
-            await log.error("Invalid JSON payload")
+            log.error("Invalid JSON payload")
 
     async def _save_detection(self, after, classification, frigate_event):
         async with get_db() as db:
@@ -97,10 +97,10 @@ class EventProcessor:
             if existing:
                 if score > existing.score:
                     await repo.update(detection)
-                    await log.info("Updated detection", event=frigate_event, species=display_name, score=score)
+                    log.info("Updated detection", event=frigate_event, species=display_name, score=score)
             else:
                 await repo.create(detection)
-                await log.info("New detection", event=frigate_event, species=display_name, score=score)
+                log.info("New detection", event=frigate_event, species=display_name, score=score)
             
             # Broadcast event
             await self.broadcaster.broadcast({
@@ -118,6 +118,6 @@ class EventProcessor:
         url = f"{settings.frigate.frigate_url}/api/events/{event_id}/sub_label"
         payload = {"subLabel": sublabel[:20]}
         try:
-             await self.http_client.post(url, json=payload)
+            await self.http_client.post(url, json=payload, timeout=10.0)
         except Exception as e:
-             await log.error("Failed to set sublabel", error=str(e))
+            log.error("Failed to set sublabel", error=str(e))

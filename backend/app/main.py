@@ -28,17 +28,11 @@ app = FastAPI(title="WhosAtMyFeeder API", version="2.0.0", lifespan=lifespan)
 # Setup structured logging
 log = structlog.get_logger()
 
-# CORS configuration
-origins = [
-    "http://localhost:3000",
-    "http://localhost:8080",
-    "*" # For dev
-]
-
+# CORS configuration - Note: wildcard origins cannot be used with credentials
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -51,7 +45,6 @@ app.include_router(species.router, prefix="/api")
 
 @app.get("/health")
 async def health_check():
-    await log.info("Health check requested")
     return {"status": "ok", "service": "whosatmyfeeder-backend"}
 
 @app.get("/metrics")

@@ -1,10 +1,14 @@
 import json
 import os
+import structlog
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import BaseModel, Field
 
-CONFIG_PATH = Path("config.json")
+log = structlog.get_logger()
+
+# Use /config directory for persistent config (matches Docker volume mount)
+CONFIG_PATH = Path("/config/config.json")
 
 class FrigateSettings(BaseModel):
     frigate_url: str = Field(..., description="URL of the Frigate instance")
@@ -58,8 +62,8 @@ class Settings(BaseSettings):
 
                 return cls(**data)
             except Exception as e:
-                print(f"Failed to load config from {CONFIG_PATH}: {e}")
-                return cls()
-        return cls()
+                log.warning("Failed to load config from file, using defaults", path=str(CONFIG_PATH), error=str(e))
+        # Return with default frigate settings - frigate_url is required
+        return cls(frigate=FrigateSettings(frigate_url="http://frigate:5000"))
 
 settings = Settings.load()

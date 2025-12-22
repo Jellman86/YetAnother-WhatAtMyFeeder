@@ -24,15 +24,15 @@ class MQTTService:
                     self.client = client
                     topic = f"{settings.frigate.main_topic}/events"
                     await client.subscribe(topic)
-                    await log.info("Connected to MQTT", topic=topic)
+                    log.info("Connected to MQTT", topic=topic)
 
                     async for message in client.messages:
                         await message_callback(message.payload)
             except MqttError as e:
-                await log.error("MQTT connection lost", error=str(e))
+                log.error("MQTT connection lost", error=str(e))
                 await asyncio.sleep(5)  # Reconnect delay
             except Exception as e:
-                await log.error("Unexpected error in MQTT service", error=str(e))
+                log.error("Unexpected error in MQTT service", error=str(e))
                 await asyncio.sleep(5)
 
     async def stop(self):

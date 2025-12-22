@@ -14,15 +14,20 @@ class Broadcaster:
         return queue
 
     async def unsubscribe(self, queue: asyncio.Queue):
-        self.queues.remove(queue)
+        # Use discard to avoid KeyError if queue already removed
+        self.queues.discard(queue)
 
     async def broadcast(self, message: dict):
         if not self.queues:
             return
-            
-        for queue in self.queues:
-            await queue.put(message)
-        
-        # log.debug("Broadcasted message", subscribers=len(self.queues))
+
+        # Create a copy to avoid issues if queues change during iteration
+        queues_snapshot = list(self.queues)
+        for queue in queues_snapshot:
+            try:
+                await queue.put(message)
+            except Exception:
+                # Queue may have been closed, remove it
+                self.queues.discard(queue)
 
 broadcaster = Broadcaster()

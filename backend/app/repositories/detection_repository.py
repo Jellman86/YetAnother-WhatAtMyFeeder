@@ -14,6 +14,38 @@ class Detection:
     camera_name: str
     id: Optional[int] = None
 
+
+def _parse_datetime(value) -> datetime:
+    """Parse datetime from SQLite storage format."""
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        # Try ISO format first, then common SQLite formats
+        for fmt in (None, "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"):
+            try:
+                if fmt is None:
+                    return datetime.fromisoformat(value)
+                return datetime.strptime(value, fmt)
+            except ValueError:
+                continue
+    # Return current time as fallback (shouldn't happen with valid data)
+    return datetime.now()
+
+
+def _row_to_detection(row) -> Detection:
+    """Convert a database row to a Detection object."""
+    return Detection(
+        id=row[0],
+        detection_time=_parse_datetime(row[1]),
+        detection_index=row[2],
+        score=row[3],
+        display_name=row[4],
+        category_name=row[5],
+        frigate_event=row[6],
+        camera_name=row[7]
+    )
+
+
 class DetectionRepository:
     def __init__(self, db: aiosqlite.Connection):
         self.db = db
@@ -25,27 +57,7 @@ class DetectionRepository:
         ) as cursor:
             row = await cursor.fetchone()
             if row:
-                # row[1] is detection_time. sqlite stores as string usually.
-                # If it comes back as string, parse it.
-                dt = row[1]
-                if isinstance(dt, str):
-                    try:
-                        dt = datetime.fromisoformat(dt)
-                    except ValueError:
-                        # Fallback or strict error? 
-                        # In this app, we trust what we wrote.
-                        pass
-                
-                return Detection(
-                    id=row[0],
-                    detection_time=dt,
-                    detection_index=row[2],
-                    score=row[3],
-                    display_name=row[4],
-                    category_name=row[5],
-                    frigate_event=row[6],
-                    camera_name=row[7]
-                )
+                return _row_to_detection(row)
             return None
 
     async def create(self, detection: Detection):
@@ -69,25 +81,7 @@ class DetectionRepository:
             (limit, offset)
         ) as cursor:
             rows = await cursor.fetchall()
-            results = []
-            for row in rows:
-                dt = row[1]
-                if isinstance(dt, str):
-                    try:
-                        dt = datetime.fromisoformat(dt)
-                    except ValueError:
-                        pass
-                results.append(Detection(
-                    id=row[0],
-                    detection_time=dt,
-                    detection_index=row[2],
-                    score=row[3],
-                    display_name=row[4],
-                    category_name=row[5],
-                    frigate_event=row[6],
-                    camera_name=row[7]
-                ))
-            return results
+            return [_row_to_detection(row) for row in rows]
 
     async def get_species_counts(self) -> list[dict]:
         async with self.db.execute(
