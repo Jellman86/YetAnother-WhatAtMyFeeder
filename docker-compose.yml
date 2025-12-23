@@ -5,7 +5,7 @@ name: YetAnother-WhatAtMyFeeder
 services:
   backend:
     image: ghcr.io/jellman86/wamf-backend:latest
-    container_name: wamf-backend
+    container_name: yawamf-backend
     restart: unless-stopped
     volumes:
       - ${configlocation}/YA-WAMF/config:/config
@@ -29,7 +29,7 @@ services:
 
   frontend:
     image: ghcr.io/jellman86/wamf-frontend:latest
-    container_name: wamf-frontend
+    container_name: yawamf-frontend
     restart: unless-stopped
     networks:
       general_brg:
