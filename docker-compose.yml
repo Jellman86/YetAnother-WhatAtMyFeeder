@@ -3,7 +3,7 @@ name: YetAnother-WhatAtMyFeeder
 # Uses pre-built images from GitHub Container Registry
 #-----------------------------------------------
 services:
-  backend:
+  yawamf-backend:
     image: ghcr.io/jellman86/wamf-backend:latest
     container_name: yawamf-backend
     restart: unless-stopped
@@ -27,7 +27,7 @@ services:
       timeout: 10s
       retries: 3
 
-  frontend:
+  yawamf-frontend:
     image: ghcr.io/jellman86/wamf-frontend:latest
     container_name: yawamf-frontend
     restart: unless-stopped
@@ -36,7 +36,7 @@ services:
     ports:
       - "8947:80"
     depends_on:
-      - backend
+      - yawamf-backend
     healthcheck:
       test: [ "CMD", "wget", "--spider", "-q", "http://localhost/" ]
       interval: 30s
