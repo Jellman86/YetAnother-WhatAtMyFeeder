@@ -1,12 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import DetectionCard from './lib/components/DetectionCard.svelte';
-  import Events from './lib/components/Events.svelte';
-  import Settings from './lib/components/Settings.svelte';
-  import Species from './lib/components/Species.svelte';
+  import Header from './lib/components/Header.svelte';
+  import Dashboard from './lib/pages/Dashboard.svelte';
+  import Events from './lib/pages/Events.svelte';
+  import Species from './lib/pages/Species.svelte';
+  import Settings from './lib/pages/Settings.svelte';
   import { fetchEvents, type Detection } from './lib/api';
+  import { theme } from './lib/stores/theme';
 
-  // Simple Router state
+  // Router state
   let currentRoute = $state('/');
 
   function navigate(path: string) {
@@ -20,6 +22,10 @@
           currentRoute = window.location.pathname;
       };
       window.addEventListener('popstate', handlePopState);
+      
+      // Initialize theme
+      theme.init();
+
       return () => window.removeEventListener('popstate', handlePopState);
   });
   
@@ -77,48 +83,21 @@
   });
 </script>
 
-<div class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white font-sans">
-  <!-- Header -->
-  <header class="bg-white dark:bg-gray-800 shadow sticky top-0 z-10">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-              <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-teal-400">
-                  WhosAtMyFeeder
-              </h1>
-              {#if connected}
-                  <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Live"></span>
-              {:else}
-                  <span class="w-2 h-2 rounded-full bg-red-500" title="Disconnected"></span>
-              {/if}
-          </div>
-          <nav class="flex gap-4">
-              <button class="hover:text-blue-500 font-medium {currentRoute === '/' ? 'text-blue-500' : ''}" onclick={() => navigate('/')}>Dashboard</button>
-              <button class="hover:text-blue-500 font-medium {currentRoute === '/events' ? 'text-blue-500' : ''}" onclick={() => navigate('/events')}>Explorer</button>
-              <button class="hover:text-blue-500 font-medium {currentRoute === '/species' ? 'text-blue-500' : ''}" onclick={() => navigate('/species')}>Leaderboard</button>
-              <button class="hover:text-blue-500 font-medium {currentRoute === '/settings' ? 'text-blue-500' : ''}" onclick={() => navigate('/settings')}>Settings</button>
-          </nav>
+<div class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-sans transition-colors duration-200">
+  <Header {currentRoute} onNavigate={navigate}>
+      <div slot="status">
+          {#if connected}
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" title="Live"></span>
+          {:else}
+              <span class="w-2.5 h-2.5 rounded-full bg-red-500" title="Disconnected"></span>
+          {/if}
       </div>
-  </header>
+  </Header>
 
   <!-- Main Content -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {#if currentRoute === '/' || currentRoute === ''}
-          <!-- Dashboard View -->
-          <div class="mb-8">
-              <h2 class="text-2xl font-bold mb-4">Live Detections</h2>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {#each detections as detection (detection.frigate_event || detection.id)}
-                  <DetectionCard {detection} />
-              {/each}
-              
-              {#if detections.length === 0}
-                  <div class="col-span-full text-center py-12 text-gray-500">
-                      No detections yet. Waiting for birds...
-                  </div>
-              {/if}
-          </div>
+          <Dashboard {detections} />
       {:else if currentRoute === '/events'}
           <Events />
       {:else if currentRoute === '/species'}

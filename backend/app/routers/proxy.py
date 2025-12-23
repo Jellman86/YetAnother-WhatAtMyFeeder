@@ -20,6 +20,21 @@ EVENT_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_]+$')
 def validate_event_id(event_id: str) -> bool:
     return bool(EVENT_ID_PATTERN.match(event_id)) and len(event_id) <= 64
 
+@router.get("/frigate/config")
+async def proxy_config():
+    url = f"{settings.frigate.frigate_url}/api/config"
+    client = get_http_client()
+    try:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        return Response(content=resp.content, media_type=resp.headers.get("content-type", "application/json"))
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Frigate request timed out")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail="Frigate error")
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Failed to connect to Frigate")
+
 @router.get("/frigate/{event_id}/snapshot.jpg")
 async def proxy_snapshot(event_id: str = Path(..., min_length=1, max_length=64)):
     if not validate_event_id(event_id):

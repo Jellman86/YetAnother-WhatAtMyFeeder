@@ -1,36 +1,103 @@
 <script lang="ts">
     import type { Detection } from '../api';
-    
+    import { getSnapshotUrl } from '../api';
+
     interface Props {
         detection: Detection;
+        onclick?: () => void;
     }
 
-    let { detection }: Props = $props();
+    let { detection, onclick }: Props = $props();
+
+    let imageError = $state(false);
+    let imageLoaded = $state(false);
+
+    function formatTime(dateString: string): string {
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch {
+            return '';
+        }
+    }
+
+    function formatDate(dateString: string): string {
+        try {
+            const date = new Date(dateString);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            if (date.toDateString() === today.toDateString()) {
+                return 'Today';
+            } else if (date.toDateString() === yesterday.toDateString()) {
+                return 'Yesterday';
+            }
+            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        } catch {
+            return '';
+        }
+    }
+
+    function getConfidenceColor(score: number): string {
+        if (score >= 0.9) return 'bg-emerald-500';
+        if (score >= 0.7) return 'bg-amber-500';
+        return 'bg-red-500';
+    }
 </script>
 
-<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
-    <div class="relative h-48 bg-gray-200 dark:bg-gray-700">
-        <!-- Placeholder for image, assuming typical Frigate URL structure if we had one, or just a placeholder -->
-        <div class="absolute inset-0 flex items-center justify-center text-gray-400">
-            <span class="text-4xl">🐦</span>
-        </div>
-        <!-- In a real app we'd construct the image URL -->
-        <!-- <img src="..." alt={detection.display_name} class="w-full h-full object-cover" /> -->
-        
-        <div class="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+<button
+    type="button"
+    {onclick}
+    class="group bg-white dark:bg-slate-800 rounded-xl shadow-sm hover:shadow-lg
+           border border-slate-200 dark:border-slate-700
+           overflow-hidden transition-all duration-300 hover:-translate-y-1
+           text-left w-full cursor-pointer"
+>
+    <!-- Image Container -->
+    <div class="relative aspect-[4/3] bg-slate-100 dark:bg-slate-700 overflow-hidden">
+        {#if !imageError}
+            <img
+                src={getSnapshotUrl(detection.frigate_event)}
+                alt={detection.display_name}
+                class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105
+                       {imageLoaded ? 'opacity-100' : 'opacity-0'}"
+                loading="lazy"
+                onload={() => imageLoaded = true}
+                onerror={() => imageError = true}
+            />
+        {/if}
+
+        {#if !imageLoaded || imageError}
+            <div class="absolute inset-0 flex items-center justify-center text-4xl">
+                🐦
+            </div>
+        {/if}
+
+        <!-- Confidence Badge -->
+        <div class="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 rounded-full
+                    bg-black/60 backdrop-blur-sm text-white text-xs font-medium">
+            <span class="w-1.5 h-1.5 rounded-full {getConfidenceColor(detection.score)}"></span>
             {(detection.score * 100).toFixed(0)}%
         </div>
+
+        <!-- Camera Badge -->
+        <div class="absolute bottom-2 left-2 px-2 py-1 rounded-full
+                    bg-black/60 backdrop-blur-sm text-white text-xs">
+            📷 {detection.camera_name}
+        </div>
     </div>
+
+    <!-- Content -->
     <div class="p-4">
-        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-1 truncate" title={detection.display_name}>
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-white truncate mb-1"
+            title={detection.display_name}>
             {detection.display_name}
         </h3>
-        <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
-            <span>{detection.camera_name}</span>
-            <span>{new Date(detection.detection_time).toLocaleTimeString()}</span>
-        </div>
-        <div class="mt-2 text-xs text-gray-400">
-            {new Date(detection.detection_time).toLocaleDateString()}
+
+        <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
+            <span>{formatDate(detection.detection_time)}</span>
+            <span>{formatTime(detection.detection_time)}</span>
         </div>
     </div>
-</div>
+</button>

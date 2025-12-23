@@ -9,43 +9,85 @@ export interface Detection {
     category_name?: string;
 }
 
-export async function fetchEvents(limit = 50, offset = 0): Promise<Detection[]> {
-    const response = await fetch(`/api/events?limit=${limit}&offset=${offset}`);
-    if (!response.ok) {
-        throw new Error(`Failed to fetch events: ${response.statusText}`);
-    }
-    return response.json();
-}
-
-export async function fetchSpecies(): Promise<{ species: string; count: number }[]> {
-    const response = await fetch('/api/species');
-    if (!response.ok) {
-        throw new Error(`Failed to fetch species: ${response.statusText}`);
-    }
-    return response.json();
+export interface SpeciesCount {
+    species: string;
+    count: number;
 }
 
 export interface Settings {
     frigate_url: string;
     mqtt_server: string;
+    mqtt_port: number;
+    mqtt_auth: boolean;
+    mqtt_username?: string;
+    mqtt_password?: string;
     classification_threshold: number;
+    cameras: string[];
 }
 
-export async function fetchSettings(): Promise<Settings> {
-    const response = await fetch('/api/settings');
+export interface SettingsUpdate {
+    frigate_url: string;
+    mqtt_server: string;
+    mqtt_port: number;
+    mqtt_auth: boolean;
+    mqtt_username?: string;
+    mqtt_password?: string;
+    classification_threshold: number;
+    cameras: string[];
+}
+
+const API_BASE = '/api';
+
+async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-        throw new Error(`Failed to fetch settings: ${response.statusText}`);
+        const error = await response.text();
+        throw new Error(error || `HTTP ${response.status}`);
     }
     return response.json();
 }
 
-export async function updateSettings(settings: Settings): Promise<void> {
-    const response = await fetch('/api/settings', {
+export async function fetchEvents(limit = 50, offset = 0): Promise<Detection[]> {
+    const response = await fetch(`${API_BASE}/events?limit=${limit}&offset=${offset}`);
+    return handleResponse<Detection[]>(response);
+}
+
+export async function fetchSpecies(): Promise<SpeciesCount[]> {
+    const response = await fetch(`${API_BASE}/species`);
+    return handleResponse<SpeciesCount[]>(response);
+}
+
+export async function fetchSettings(): Promise<Settings> {
+    const response = await fetch(`${API_BASE}/settings`);
+    return handleResponse<Settings>(response);
+}
+
+export async function updateSettings(settings: SettingsUpdate): Promise<{ status: string }> {
+    const response = await fetch(`${API_BASE}/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
     });
-    if (!response.ok) {
-        throw new Error(`Failed to update settings: ${response.statusText}`);
-    }
+    return handleResponse<{ status: string }>(response);
+}
+
+export async function checkHealth(): Promise<{ status: string; service: string }> {
+    const response = await fetch('/health');
+    return handleResponse<{ status: string; service: string }>(response);
+}
+
+export async function fetchFrigateConfig(): Promise<any> {
+    const response = await fetch(`${API_BASE}/frigate/config`);
+    return handleResponse<any>(response);
+}
+
+export function getSnapshotUrl(frigateEvent: string): string {
+    return `${API_BASE}/frigate/${frigateEvent}/snapshot.jpg`;
+}
+
+export function getThumbnailUrl(frigateEvent: string): string {
+    return `${API_BASE}/frigate/${frigateEvent}/thumbnail.jpg`;
+}
+
+export function getClipUrl(frigateEvent: string): string {
+    return `${API_BASE}/frigate/${frigateEvent}/clip.mp4`;
 }
