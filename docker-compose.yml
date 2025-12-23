@@ -16,10 +16,10 @@ services:
       - "8946:8000"
     environment:
       - TZ=Europe/London
-      - FRIGATE__MQTT_SERVER=${MQTT_SERVER}
-      - FRIGATE__MQTT_PORT=${MQTT_PORT}
-      - FRIGATE__MQTT_AUTH=${MQTT_AUTH}
-      - FRIGATE__MQTT_USERNAME=${MQTT_USERNAME}
+      - FRIGATE__MQTT_SERVER=mosquitto
+      - FRIGATE__MQTT_PORT=1883
+      - FRIGATE__MQTT_AUTH=true
+      - FRIGATE__MQTT_USERNAME=jellman86
       - FRIGATE__MQTT_PASSWORD=${MQTT_PASSWORD}
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
