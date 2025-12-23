@@ -39,31 +39,35 @@ class Settings(BaseSettings):
             
     @classmethod
     def load(cls):
+        # Build frigate settings from environment variables
+        frigate_data = {
+            'frigate_url': os.environ.get('FRIGATE__FRIGATE_URL', 'http://frigate:5000'),
+            'main_topic': os.environ.get('FRIGATE__MAIN_TOPIC', 'frigate'),
+            'mqtt_server': os.environ.get('FRIGATE__MQTT_SERVER', 'mqtt'),
+            'mqtt_port': int(os.environ.get('FRIGATE__MQTT_PORT', '1883')),
+            'mqtt_auth': os.environ.get('FRIGATE__MQTT_AUTH', 'false').lower() == 'true',
+            'mqtt_username': os.environ.get('FRIGATE__MQTT_USERNAME', ''),
+            'mqtt_password': os.environ.get('FRIGATE__MQTT_PASSWORD', ''),
+        }
+
+        # Load from config file if it exists, env vars take precedence
         if CONFIG_PATH.exists():
             try:
                 with open(CONFIG_PATH, 'r') as f:
-                    data = json.load(f)
-                # We merge with env vars by creating an instance. 
-                # Pydantic prefers init args > env vars > defaults.
-                # So passing the file data as kwargs overrides env vars. 
-                # FIX: If specific MQTT env vars are present, remove them from 'data' 
-                # so Pydantic uses the env var value instead of the file value.
-                if 'frigate' in data:
-                    if os.environ.get('FRIGATE__MQTT_SERVER'):
-                        data['frigate'].pop('mqtt_server', None)
-                    if os.environ.get('FRIGATE__MQTT_PORT'):
-                        data['frigate'].pop('mqtt_port', None)
-                    if os.environ.get('FRIGATE__MQTT_AUTH'):
-                        data['frigate'].pop('mqtt_auth', None)
-                    if os.environ.get('FRIGATE__MQTT_USERNAME'):
-                        data['frigate'].pop('mqtt_username', None)
-                    if os.environ.get('FRIGATE__MQTT_PASSWORD'):
-                        data['frigate'].pop('mqtt_password', None)
+                    file_data = json.load(f)
+                # Merge file data with env vars (env vars win)
+                if 'frigate' in file_data:
+                    for key, value in file_data['frigate'].items():
+                        env_key = f'FRIGATE__{key.upper()}'
+                        if not os.environ.get(env_key):
+                            frigate_data[key] = value
 
-                return cls(**data)
+                log.info("Loaded config from file", path=str(CONFIG_PATH))
             except Exception as e:
-                log.warning("Failed to load config from file, using defaults", path=str(CONFIG_PATH), error=str(e))
-        # Return with default frigate settings - frigate_url is required
-        return cls(frigate=FrigateSettings(frigate_url="http://frigate:5000"))
+                log.warning("Failed to load config from file", path=str(CONFIG_PATH), error=str(e))
+
+        log.info("MQTT config", server=frigate_data['mqtt_server'], port=frigate_data['mqtt_port'], auth=frigate_data['mqtt_auth'])
+
+        return cls(frigate=FrigateSettings(**frigate_data))
 
 settings = Settings.load()
