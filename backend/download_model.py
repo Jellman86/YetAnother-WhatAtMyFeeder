@@ -37,15 +37,32 @@ def download_file(url: str, dest: Path, desc: str) -> bool:
     print(f"  From: {url}")
     print(f"  To: {dest}")
 
-    try:
-        def progress_hook(block_num, block_size, total_size):
-            if total_size > 0:
-                percent = min(100, block_num * block_size * 100 // total_size)
-                mb_downloaded = block_num * block_size / (1024 * 1024)
-                mb_total = total_size / (1024 * 1024)
-                print(f"\r  Progress: {percent}% ({mb_downloaded:.1f}/{mb_total:.1f} MB)", end="", flush=True)
+    # Add User-Agent header to avoid 403 errors from Google Cloud Storage
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
 
-        urllib.request.urlretrieve(url, dest, progress_hook)
+    try:
+        request = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(request) as response:
+            total_size = int(response.headers.get('Content-Length', 0))
+            downloaded = 0
+            chunk_size = 8192
+
+            with open(dest, 'wb') as f:
+                while True:
+                    chunk = response.read(chunk_size)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    downloaded += len(chunk)
+
+                    if total_size > 0:
+                        percent = min(100, downloaded * 100 // total_size)
+                        mb_downloaded = downloaded / (1024 * 1024)
+                        mb_total = total_size / (1024 * 1024)
+                        print(f"\r  Progress: {percent}% ({mb_downloaded:.1f}/{mb_total:.1f} MB)", end="", flush=True)
+
         print()  # New line after progress
         return True
     except Exception as e:

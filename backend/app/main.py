@@ -56,7 +56,6 @@ async def classifier_status():
 async def download_default_model():
     """Download the default bird classifier model."""
     import urllib.request
-    import os
     from pathlib import Path
 
     MODEL_URL = "https://storage.googleapis.com/tfhub-lite-models/google/lite-model/aiy/vision/classifier/birds_V1/3.tflite"
@@ -67,14 +66,25 @@ async def download_default_model():
     model_path = assets_dir / "model.tflite"
     labels_path = assets_dir / "labels.txt"
 
+    # Create a request with proper headers to avoid 403 errors
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+
     try:
         # Download model
         log.info("Downloading bird classifier model...")
-        urllib.request.urlretrieve(MODEL_URL, model_path)
+        model_request = urllib.request.Request(MODEL_URL, headers=headers)
+        with urllib.request.urlopen(model_request) as response:
+            with open(model_path, 'wb') as f:
+                f.write(response.read())
 
         # Download labels
         log.info("Downloading labels...")
-        urllib.request.urlretrieve(LABELS_URL, labels_path)
+        labels_request = urllib.request.Request(LABELS_URL, headers=headers)
+        with urllib.request.urlopen(labels_request) as response:
+            with open(labels_path, 'wb') as f:
+                f.write(response.read())
 
         # Process labels to extract common names
         with open(labels_path, 'r') as f:
