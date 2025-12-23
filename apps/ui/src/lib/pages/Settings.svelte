@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchSettings, updateSettings, testFrigateConnection, fetchFrigateConfig, fetchClassifierStatus, type ClassifierStatus } from '../api';
+    import { fetchSettings, updateSettings, testFrigateConnection, fetchFrigateConfig, fetchClassifierStatus, downloadDefaultModel, type ClassifierStatus } from '../api';
     import { theme, type Theme } from '../stores/theme';
 
     let frigateUrl = $state('');
@@ -22,6 +22,7 @@
     let currentTheme: Theme = $state('system');
 
     let classifierStatus = $state<ClassifierStatus | null>(null);
+    let downloadingModel = $state(false);
 
     theme.subscribe(t => currentTheme = t);
 
@@ -38,6 +39,25 @@
             classifierStatus = await fetchClassifierStatus();
         } catch (e) {
             console.error('Failed to load classifier status', e);
+        }
+    }
+
+    async function handleDownloadModel() {
+        downloadingModel = true;
+        message = null;
+        try {
+            const result = await downloadDefaultModel();
+            if (result.status === 'ok') {
+                message = { type: 'success', text: result.message };
+                // Reload classifier status
+                await loadClassifierStatus();
+            } else {
+                message = { type: 'error', text: result.message };
+            }
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Failed to download model' };
+        } finally {
+            downloadingModel = false;
         }
     }
 
@@ -342,25 +362,48 @@
                 <div class="mb-4 p-3 rounded-lg {classifierStatus.enabled
                     ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800'
                     : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'}">
-                    <div class="flex items-center gap-2">
-                        {#if classifierStatus.enabled}
-                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                            <span class="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                                Model Loaded ({classifierStatus.labels_count} species)
-                            </span>
-                        {:else}
-                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                            <span class="text-sm font-medium text-amber-700 dark:text-amber-400">
-                                Classification Disabled
-                            </span>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            {#if classifierStatus.enabled}
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                <span class="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                                    Model Loaded ({classifierStatus.labels_count} species)
+                                </span>
+                            {:else}
+                                <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                                <span class="text-sm font-medium text-amber-700 dark:text-amber-400">
+                                    Classification Disabled
+                                </span>
+                            {/if}
+                        </div>
+                        {#if !classifierStatus.enabled}
+                            <button
+                                onclick={handleDownloadModel}
+                                disabled={downloadingModel}
+                                class="px-3 py-1.5 text-sm font-medium rounded-lg
+                                       bg-brand-500 hover:bg-brand-600 text-white
+                                       transition-colors disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {#if downloadingModel}
+                                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Downloading...
+                                {:else}
+                                    Download Default Model
+                                {/if}
+                            </button>
                         {/if}
                     </div>
-                    {#if classifierStatus.error}
-                        <p class="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                    {#if classifierStatus.error && !downloadingModel}
+                        <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
                             {classifierStatus.error}
                         </p>
-                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            Run <code class="px-1 py-0.5 bg-slate-200 dark:bg-slate-700 rounded">python download_model.py</code> in the backend to download the default model.
+                    {/if}
+                    {#if downloadingModel}
+                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                            Downloading Google AIY Bird Classifier (~20MB)...
                         </p>
                     {/if}
                 </div>

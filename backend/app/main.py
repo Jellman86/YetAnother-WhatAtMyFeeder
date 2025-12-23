@@ -52,6 +52,65 @@ async def classifier_status():
     """Return the status of the bird classifier model."""
     return classifier_service.get_status()
 
+@app.post("/api/classifier/download")
+async def download_default_model():
+    """Download the default bird classifier model."""
+    import urllib.request
+    import os
+    from pathlib import Path
+
+    MODEL_URL = "https://storage.googleapis.com/tfhub-lite-models/google/lite-model/aiy/vision/classifier/birds_V1/3.tflite"
+    LABELS_URL = "https://raw.githubusercontent.com/google-coral/edgetpu/master/test_data/inat_bird_labels.txt"
+
+    assets_dir = Path(__file__).parent / "assets"
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    model_path = assets_dir / "model.tflite"
+    labels_path = assets_dir / "labels.txt"
+
+    try:
+        # Download model
+        log.info("Downloading bird classifier model...")
+        urllib.request.urlretrieve(MODEL_URL, model_path)
+
+        # Download labels
+        log.info("Downloading labels...")
+        urllib.request.urlretrieve(LABELS_URL, labels_path)
+
+        # Process labels to extract common names
+        with open(labels_path, 'r') as f:
+            lines = f.readlines()
+
+        processed_labels = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            if '(' in line and ')' in line:
+                start = line.rfind('(') + 1
+                end = line.rfind(')')
+                common_name = line[start:end].strip()
+                processed_labels.append(common_name)
+            else:
+                parts = line.split(' ', 1)
+                processed_labels.append(parts[1] if len(parts) > 1 else line)
+
+        with open(labels_path, 'w') as f:
+            for label in processed_labels:
+                f.write(f"{label}\n")
+
+        # Reload the classifier
+        classifier_service._load_model()
+
+        log.info("Model downloaded and loaded successfully")
+        return {
+            "status": "ok",
+            "message": f"Downloaded model with {len(processed_labels)} species",
+            "labels_count": len(processed_labels)
+        }
+    except Exception as e:
+        log.error("Failed to download model", error=str(e))
+        return {"status": "error", "message": str(e)}
+
 @app.get("/metrics")
 async def metrics():
     # Placeholder for Prometheus metrics

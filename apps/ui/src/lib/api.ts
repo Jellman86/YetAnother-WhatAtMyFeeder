@@ -103,6 +103,19 @@ export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
     return handleResponse<ClassifierStatus>(response);
 }
 
+export interface DownloadModelResult {
+    status: 'ok' | 'error';
+    message: string;
+    labels_count?: number;
+}
+
+export async function downloadDefaultModel(): Promise<DownloadModelResult> {
+    const response = await fetch(`${API_BASE}/classifier/download`, {
+        method: 'POST',
+    });
+    return handleResponse<DownloadModelResult>(response);
+}
+
 export function getSnapshotUrl(frigateEvent: string): string {
     return `${API_BASE}/frigate/${frigateEvent}/snapshot.jpg`;
 }
