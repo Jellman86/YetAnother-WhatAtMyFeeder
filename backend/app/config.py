@@ -1,6 +1,7 @@
 import json
 import os
 import structlog
+from typing import Optional
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import BaseModel, Field
@@ -12,6 +13,7 @@ CONFIG_PATH = Path("/config/config.json")
 
 class FrigateSettings(BaseModel):
     frigate_url: str = Field(..., description="URL of the Frigate instance")
+    frigate_auth_token: Optional[str] = Field(None, description="Optional Bearer token for Frigate proxy auth")
     main_topic: str = "frigate"
     camera: list[str] = Field(default_factory=list, description="List of cameras to monitor")
     mqtt_server: str = "mqtt"
@@ -42,6 +44,7 @@ class Settings(BaseSettings):
         # Build frigate settings from environment variables
         frigate_data = {
             'frigate_url': os.environ.get('FRIGATE__FRIGATE_URL', 'http://frigate:5000'),
+            'frigate_auth_token': os.environ.get('FRIGATE__FRIGATE_AUTH_TOKEN', None),
             'main_topic': os.environ.get('FRIGATE__MAIN_TOPIC', 'frigate'),
             'mqtt_server': os.environ.get('FRIGATE__MQTT_SERVER', 'mqtt'),
             'mqtt_port': int(os.environ.get('FRIGATE__MQTT_PORT', '1883')),

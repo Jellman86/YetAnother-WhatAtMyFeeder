@@ -160,7 +160,7 @@
                         id="frigate-url"
                         type="url"
                         bind:value={frigateUrl}
-                        placeholder="http://frigate:5000"
+                        placeholder="http://frigate_host:5000"
                         class="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
                                bg-white dark:bg-slate-700 text-slate-900 dark:text-white
                                focus:ring-2 focus:ring-teal-500 focus:border-transparent
