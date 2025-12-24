@@ -21,8 +21,8 @@ def get_frigate_headers() -> dict:
         headers['Authorization'] = f'Bearer {settings.frigate.frigate_auth_token}'
     return headers
 
-# Validate event_id format (Frigate uses UUIDs or numeric IDs)
-EVENT_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_]+$')
+# Validate event_id format (Frigate uses UUIDs, numeric IDs, or timestamp-based IDs with dots)
+EVENT_ID_PATTERN = re.compile(r'^[a-zA-Z0-9\-_.]+$')
 
 def validate_event_id(event_id: str) -> bool:
     return bool(EVENT_ID_PATTERN.match(event_id)) and len(event_id) <= 64

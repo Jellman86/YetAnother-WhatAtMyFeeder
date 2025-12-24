@@ -1,11 +1,13 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { fetchSpecies, type SpeciesCount } from '../api';
+    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
 
     let species: SpeciesCount[] = $state([]);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let sortBy = $state<'count' | 'name'>('count');
+    let selectedSpecies = $state<string | null>(null);
 
     // Derived sorted species
     let sortedSpecies = $derived(() => {
@@ -130,7 +132,11 @@
         <!-- Stats Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {#each sortedSpecies().slice(0, 3) as topSpecies, index}
-                <div class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-5 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300 hover:shadow-card-hover dark:hover:shadow-card-dark-hover">
+                <button
+                    type="button"
+                    onclick={() => selectedSpecies = topSpecies.species}
+                    class="text-left bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-5 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300 hover:shadow-card-hover dark:hover:shadow-card-dark-hover hover:border-teal-300 dark:hover:border-teal-600"
+                >
                     <div class="flex items-center gap-3">
                         <span class="text-3xl">{getMedal(index)}</span>
                         <div class="flex-1 min-w-0">
@@ -145,7 +151,7 @@
                             </p>
                         </div>
                     </div>
-                </div>
+                </button>
             {/each}
         </div>
 
@@ -157,7 +163,11 @@
 
             <div class="divide-y divide-slate-100/80 dark:divide-slate-700/50">
                 {#each sortedSpecies() as item, index (item.species)}
-                    <div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <button
+                        type="button"
+                        onclick={() => selectedSpecies = item.species}
+                        class="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                    >
                         <div class="flex items-center gap-4">
                             <!-- Rank -->
                             <div class="w-8 text-center">
@@ -194,9 +204,17 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </button>
                 {/each}
             </div>
         </div>
     {/if}
 </div>
+
+<!-- Species Detail Modal -->
+{#if selectedSpecies}
+    <SpeciesDetailModal
+        speciesName={selectedSpecies}
+        onclose={() => selectedSpecies = null}
+    />
+{/if}

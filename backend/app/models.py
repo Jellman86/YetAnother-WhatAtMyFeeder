@@ -21,3 +21,33 @@ class FrigateEvent(BaseModel):
     start_time: float
     top_score: float | None = None
     false_positive: bool | None = None
+
+# Species detail models
+class CameraStats(BaseModel):
+    camera_name: str
+    count: int
+    percentage: float
+
+class SpeciesStats(BaseModel):
+    species_name: str
+    total_sightings: int
+    first_seen: datetime | None
+    last_seen: datetime | None
+    cameras: list[CameraStats]
+    hourly_distribution: list[int]  # 24 elements (0-23 hours)
+    daily_distribution: list[int]   # 7 elements (0=Sunday, 6=Saturday)
+    monthly_distribution: list[int] # 12 elements (1-12 months)
+    avg_confidence: float
+    max_confidence: float
+    min_confidence: float
+    recent_sightings: list[Detection]
+
+class SpeciesInfo(BaseModel):
+    title: str
+    description: str | None = None
+    extract: str | None = None
+    thumbnail_url: str | None = None
+    wikipedia_url: str | None = None
+    scientific_name: str | None = None
+    conservation_status: str | None = None
+    cached_at: datetime | None = None

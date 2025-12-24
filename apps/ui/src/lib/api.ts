@@ -127,3 +127,46 @@ export function getThumbnailUrl(frigateEvent: string): string {
 export function getClipUrl(frigateEvent: string): string {
     return `${API_BASE}/frigate/${frigateEvent}/clip.mp4`;
 }
+
+// Species detail types
+export interface CameraStats {
+    camera_name: string;
+    count: number;
+    percentage: number;
+}
+
+export interface SpeciesStats {
+    species_name: string;
+    total_sightings: number;
+    first_seen: string | null;
+    last_seen: string | null;
+    cameras: CameraStats[];
+    hourly_distribution: number[];
+    daily_distribution: number[];
+    monthly_distribution: number[];
+    avg_confidence: number;
+    max_confidence: number;
+    min_confidence: number;
+    recent_sightings: Detection[];
+}
+
+export interface SpeciesInfo {
+    title: string;
+    description: string | null;
+    extract: string | null;
+    thumbnail_url: string | null;
+    wikipedia_url: string | null;
+    scientific_name: string | null;
+    conservation_status: string | null;
+    cached_at: string | null;
+}
+
+export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesStats> {
+    const response = await fetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/stats`);
+    return handleResponse<SpeciesStats>(response);
+}
+
+export async function fetchSpeciesInfo(speciesName: string): Promise<SpeciesInfo> {
+    const response = await fetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`);
+    return handleResponse<SpeciesInfo>(response);
+}

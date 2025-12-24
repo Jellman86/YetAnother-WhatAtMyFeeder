@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { fetchEvents, type Detection, getThumbnailUrl } from '../api';
     import DetectionCard from '../components/DetectionCard.svelte';
+    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
 
     let events: Detection[] = $state([]);
     let loading = $state(true);
@@ -48,6 +49,7 @@
 
     // Selected event for modal
     let selectedEvent = $state<Detection | null>(null);
+    let selectedSpecies = $state<string | null>(null);
 
     onMount(async () => {
         await loadEvents();
@@ -252,7 +254,27 @@
                         </p>
                     </div>
                 </div>
+
+                <button
+                    onclick={() => {
+                        selectedSpecies = selectedEvent?.display_name ?? null;
+                        selectedEvent = null;
+                    }}
+                    class="mt-4 w-full px-4 py-2 text-sm font-medium text-teal-600 dark:text-teal-400
+                           bg-teal-50 dark:bg-teal-900/20 rounded-lg
+                           hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors"
+                >
+                    View Species Details
+                </button>
             </div>
         </div>
     </div>
+{/if}
+
+<!-- Species Detail Modal -->
+{#if selectedSpecies}
+    <SpeciesDetailModal
+        speciesName={selectedSpecies}
+        onclose={() => selectedSpecies = null}
+    />
 {/if}
