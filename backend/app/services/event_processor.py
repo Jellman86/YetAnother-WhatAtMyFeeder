@@ -19,6 +19,13 @@ class EventProcessor:
         self.http_client = httpx.AsyncClient()
         self.broadcaster = broadcaster
 
+    def _get_frigate_headers(self) -> dict:
+        """Build headers for Frigate requests, including auth token if configured."""
+        headers = {}
+        if settings.frigate.frigate_auth_token:
+            headers['Authorization'] = f'Bearer {settings.frigate.frigate_auth_token}'
+        return headers
+
     async def process_mqtt_message(self, payload: bytes):
         try:
             data = json.loads(payload)
@@ -47,7 +54,8 @@ class EventProcessor:
             params = {"crop": 1, "quality": 95}
             
             try:
-                response = await self.http_client.get(snapshot_url, params=params, timeout=30.0)
+                headers = self._get_frigate_headers()
+                response = await self.http_client.get(snapshot_url, params=params, headers=headers, timeout=30.0)
                 if response.status_code == 200:
                    image = Image.open(BytesIO(response.content))
                    
@@ -118,6 +126,7 @@ class EventProcessor:
         url = f"{settings.frigate.frigate_url}/api/events/{event_id}/sub_label"
         payload = {"subLabel": sublabel[:20]}
         try:
-            await self.http_client.post(url, json=payload, timeout=10.0)
+            headers = self._get_frigate_headers()
+            await self.http_client.post(url, json=payload, headers=headers, timeout=10.0)
         except Exception as e:
             log.error("Failed to set sublabel", error=str(e))
