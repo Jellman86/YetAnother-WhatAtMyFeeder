@@ -84,7 +84,7 @@ cp .env.example .env
 ```env
 # The Docker network where Frigate and your MQTT broker live
 # (check with: docker network ls)
-DOCKER_NETWORK=your_frigate_network_name
+DOCKER_NETWORK=frigate
 
 # Your Frigate instance
 FRIGATE_URL=http://frigate:5000
@@ -95,8 +95,8 @@ MQTT_PORT=1883
 
 # If your MQTT needs authentication
 MQTT_AUTH=true
-MQTT_USERNAME=your_username
-MQTT_PASSWORD=your_password
+MQTT_USERNAME=mqtt_user
+MQTT_PASSWORD=secret_password
 
 # Your timezone
 TZ=Europe/London
@@ -131,7 +131,7 @@ docker compose up -d
 
 **7. Open the dashboard:**
 
-Go to `http://your-server-ip:9852` in your browser.
+Go to `http://localhost:9852` in your browser (or your server's IP address).
 
 **8. Download the bird model:**
 
@@ -144,7 +144,7 @@ On first run, you'll need to download the classification model. Go to Settings i
 docker compose ps
 
 # Check backend logs
-docker compose logs yawamf-backend
+docker compose logs backend
 
 # You should see something like:
 # MQTT config: auth=True port=1883 server=mosquitto
@@ -160,7 +160,7 @@ docker compose logs yawamf-backend
 
 **Frontend not loading?**
 - Check the frontend container is healthy: `docker compose ps`
-- Look at frontend logs: `docker compose logs yawamf-frontend`
+- Look at frontend logs: `docker compose logs frontend`
 
 **No detections appearing?**
 - Make sure Frigate is detecting birds and publishing to MQTT

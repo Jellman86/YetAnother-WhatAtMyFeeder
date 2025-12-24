@@ -12,7 +12,7 @@
 We take security seriously. If you discover a security vulnerability within YA-WAMF, please adhere to the following:
 
 1.  **Do NOT** open a public issue.
-2.  Send an email to the project maintainers (insert email here or refer to profile).
+2.  Report the vulnerability via the **GitHub Security** tab on the repository, or by contacting the maintainers directly through GitHub.
 3.  Include a detailed description of the vulnerability and steps to reproduce it.
 
 We will acknowledge receipt of your report within 48 hours and strive to provide a fix as soon as possible.
