@@ -324,86 +324,120 @@
 <!-- Detail Modal -->
 {#if selectedEvent}
     <div
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-dark/80 backdrop-blur-md"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
         onclick={() => selectedEvent = null}
         onkeydown={(e) => e.key === 'Escape' && (selectedEvent = null)}
         role="dialog"
         tabindex="-1"
     >
         <div
-            class="bg-white dark:bg-slate-800/95 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-slate-200/80 dark:border-slate-700/50 backdrop-blur-sm animate-fade-in"
+            class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden
+                   border border-slate-200 dark:border-slate-700"
             onclick={(e) => e.stopPropagation()}
             onkeydown={(e) => e.stopPropagation()}
             role="document"
             tabindex="-1"
         >
-            <div class="relative">
+            <!-- Image with overlay -->
+            <div class="relative aspect-video bg-slate-100 dark:bg-slate-700">
                 <img
                     src={getThumbnailUrl(selectedEvent.frigate_event)}
                     alt={selectedEvent.display_name}
-                    class="w-full aspect-video object-cover"
+                    class="w-full h-full object-cover"
                 />
+                <!-- Gradient overlay with species name -->
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                <div class="absolute bottom-0 left-0 right-0 p-4">
+                    <h3 class="text-2xl font-bold text-white drop-shadow-lg">
+                        {selectedEvent.display_name}
+                    </h3>
+                    <p class="text-white/80 text-sm mt-1">
+                        {new Date(selectedEvent.detection_time).toLocaleDateString(undefined, {
+                            weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+                        })} at {new Date(selectedEvent.detection_time).toLocaleTimeString(undefined, {
+                            hour: '2-digit', minute: '2-digit'
+                        })}
+                    </p>
+                </div>
+                <!-- Close button -->
                 <button
                     onclick={() => selectedEvent = null}
-                    class="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 text-white
-                           flex items-center justify-center hover:bg-black/70 transition-colors"
+                    class="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 text-white/90
+                           flex items-center justify-center hover:bg-black/60 transition-colors"
+                    aria-label="Close"
                 >
-                    ✕
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                 </button>
             </div>
 
-            <div class="p-6">
-                <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-                    {selectedEvent.display_name}
-                </h3>
-
-                <div class="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <span class="text-slate-500 dark:text-slate-400">Confidence</span>
-                        <p class="font-semibold text-slate-900 dark:text-white">
+            <div class="p-5">
+                <!-- Confidence bar -->
+                <div class="mb-4">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-sm font-medium text-slate-600 dark:text-slate-400">Confidence</span>
+                        <span class="text-sm font-bold text-slate-900 dark:text-white">
                             {(selectedEvent.score * 100).toFixed(1)}%
-                        </p>
+                        </span>
                     </div>
-                    <div>
-                        <span class="text-slate-500 dark:text-slate-400">Camera</span>
-                        <p class="font-semibold text-slate-900 dark:text-white">
-                            {selectedEvent.camera_name}
-                        </p>
-                    </div>
-                    <div>
-                        <span class="text-slate-500 dark:text-slate-400">Date</span>
-                        <p class="font-semibold text-slate-900 dark:text-white">
-                            {new Date(selectedEvent.detection_time).toLocaleDateString()}
-                        </p>
-                    </div>
-                    <div>
-                        <span class="text-slate-500 dark:text-slate-400">Time</span>
-                        <p class="font-semibold text-slate-900 dark:text-white">
-                            {new Date(selectedEvent.detection_time).toLocaleTimeString()}
-                        </p>
+                    <div class="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                            class="h-full rounded-full transition-all duration-500
+                                   {selectedEvent.score >= 0.8 ? 'bg-emerald-500' :
+                                    selectedEvent.score >= 0.6 ? 'bg-teal-500' :
+                                    selectedEvent.score >= 0.4 ? 'bg-amber-500' : 'bg-red-500'}"
+                            style="width: {selectedEvent.score * 100}%"
+                        ></div>
                     </div>
                 </div>
 
-                <div class="mt-4 flex gap-2">
+                <!-- Camera info -->
+                <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 mb-5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <span class="font-medium">{selectedEvent.camera_name}</span>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="flex gap-2">
                     <button
                         onclick={() => {
                             selectedSpecies = selectedEvent?.display_name ?? null;
                             selectedEvent = null;
                         }}
-                        class="flex-1 px-4 py-2 text-sm font-medium text-teal-600 dark:text-teal-400
-                               bg-teal-50 dark:bg-teal-900/20 rounded-lg
-                               hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors"
+                        class="flex-1 px-4 py-2.5 text-sm font-medium text-white
+                               bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors
+                               flex items-center justify-center gap-2"
                     >
-                        View Species Details
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Species Info
                     </button>
                     <button
                         onclick={handleDelete}
                         disabled={deleting}
-                        class="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400
+                        class="px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400
                                bg-red-50 dark:bg-red-900/20 rounded-lg
                                hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors
-                               disabled:opacity-50 disabled:cursor-not-allowed"
+                               disabled:opacity-50 disabled:cursor-not-allowed
+                               flex items-center justify-center gap-2"
                     >
+                        {#if deleting}
+                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        {:else}
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        {/if}
                         {deleting ? 'Deleting...' : 'Delete'}
                     </button>
                 </div>

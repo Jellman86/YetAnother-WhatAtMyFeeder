@@ -21,8 +21,9 @@
     let loading = $state(true);
     let error = $state<string | null>(null);
 
-    const HOUR_LABELS = ['12a', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11',
-                         '12p', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];
+    // Simplified hour labels - show key times only, hover reveals exact hour
+    const HOUR_LABELS = ['12am', '1', '2', '3', '4', '5', '6am', '7', '8', '9', '10', '11',
+                         '12pm', '1', '2', '3', '4', '5', '6pm', '7', '8', '9', '10', '11'];
     const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -239,26 +240,31 @@
                 <!-- Time Distribution Charts -->
                 <section>
                     <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">Activity Patterns</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
-                            <SimpleBarChart
-                                data={stats.hourly_distribution}
-                                labels={HOUR_LABELS}
-                                title="Hourly Activity"
-                            />
-                        </div>
+
+                    <!-- Hourly chart - full width for better visibility -->
+                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 mb-4">
+                        <SimpleBarChart
+                            data={stats.hourly_distribution}
+                            labels={HOUR_LABELS}
+                            title="Time of Day"
+                            showEveryNthLabel={6}
+                        />
+                    </div>
+
+                    <!-- Weekly and Monthly side by side -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
                             <SimpleBarChart
                                 data={stats.daily_distribution}
                                 labels={DAY_LABELS}
-                                title="Weekly Pattern"
+                                title="Day of Week"
                             />
                         </div>
                         <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
                             <SimpleBarChart
                                 data={stats.monthly_distribution}
                                 labels={MONTH_LABELS}
-                                title="Monthly Trend"
+                                title="Month"
                             />
                         </div>
                     </div>
