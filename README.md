@@ -69,8 +69,8 @@ Here's the flow from bird to identification:
 
 ```bash
 mkdir ya-wamf && cd ya-wamf
-curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhatAtMyFeeder/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhatAtMyFeeder/main/.env.example
+curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/.env.example
 ```
 
 **2. Create your environment file:**
@@ -182,6 +182,10 @@ Most settings can be changed through the web UI under Settings. They get saved t
 ## Contributing
 
 Feel free to open issues or PRs if you find bugs or have improvements. Just keep in mind this is a hobby project maintained in spare time.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Thanks To
 

@@ -16,7 +16,7 @@
 
             <div class="flex items-center gap-4">
                 <a
-                    href="https://github.com/Jellman86/YetAnother-WhatAtMyFeeder"
+                    href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-1.5"
