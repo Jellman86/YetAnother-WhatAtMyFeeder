@@ -58,11 +58,10 @@ async def download_default_model():
     import httpx
     from pathlib import Path
 
-    # Direct Google Cloud Storage URL for the TFLite model
-    # Alternative URLs to try in order of preference
+    # TFLite bird classifier model URLs - using Google Coral EdgeTPU repo (reliable source)
+    # The MobileNet V2 iNaturalist bird model recognizes ~965 bird species
     MODEL_URLS = [
-        "https://storage.googleapis.com/download.tensorflow.org/models/tflite/aiy_vision_classifier_birds_V1_3.tflite",
-        "https://storage.googleapis.com/tfhub-lite-models/google/lite-model/aiy/vision/classifier/birds_V1/3.tflite",
+        "https://raw.githubusercontent.com/google-coral/edgetpu/master/test_data/mobilenet_v2_1.0_224_inat_bird_quant.tflite",
     ]
     LABELS_URL = "https://raw.githubusercontent.com/google-coral/edgetpu/master/test_data/inat_bird_labels.txt"
 
