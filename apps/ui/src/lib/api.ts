@@ -7,6 +7,7 @@ export interface Detection {
     camera_name: string;
     detection_index?: number;
     category_name?: string;
+    has_clip?: boolean;  // Clip availability from backend
 }
 
 export interface VersionInfo {

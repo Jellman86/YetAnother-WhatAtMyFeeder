@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { Detection } from '../api';
-    import { getThumbnailUrl, checkClipAvailable } from '../api';
+    import { getThumbnailUrl } from '../api';
     import VideoPlayer from './VideoPlayer.svelte';
 
     interface Props {
@@ -14,9 +14,10 @@
     let imageLoaded = $state(false);
     let cardElement = $state<HTMLElement | null>(null);
     let isVisible = $state(false);
-    let hasClip = $state(false);
     let showVideo = $state(false);
-    let checkingClip = $state(false);
+
+    // Use has_clip from detection response (no individual HEAD requests needed)
+    let hasClip = $derived(detection.has_clip ?? false);
 
     // Lazy load with intersection observer
     $effect(() => {
@@ -34,17 +35,6 @@
 
         observer.observe(cardElement);
         return () => observer.disconnect();
-    });
-
-    // Check for clip availability when visible
-    $effect(() => {
-        if (!isVisible || checkingClip || hasClip) return;
-
-        checkingClip = true;
-        checkClipAvailable(detection.frigate_event).then((available) => {
-            hasClip = available;
-            checkingClip = false;
-        });
     });
 
     function handlePlayClick(event: MouseEvent) {

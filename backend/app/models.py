@@ -13,6 +13,7 @@ class Detection(BaseModel):
 
 class DetectionResponse(Detection):
     common_name: str | None = None
+    has_clip: bool = False  # Clip availability from Frigate
 
 class FrigateEvent(BaseModel):
     id: str

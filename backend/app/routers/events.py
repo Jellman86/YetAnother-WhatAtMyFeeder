@@ -16,6 +16,52 @@ from app.services.classifier_service import ClassifierService
 router = APIRouter()
 log = structlog.get_logger()
 
+
+def get_frigate_headers() -> dict:
+    """Build headers for Frigate requests, including auth token if configured."""
+    headers = {}
+    if settings.frigate.frigate_auth_token:
+        headers['Authorization'] = f'Bearer {settings.frigate.frigate_auth_token}'
+    return headers
+
+
+async def batch_check_clips(event_ids: list[str]) -> dict[str, bool]:
+    """
+    Check clip availability for multiple events from Frigate.
+    Returns a dict mapping event_id -> has_clip boolean.
+    """
+    if not event_ids:
+        return {}
+
+    frigate_url = settings.frigate.frigate_url
+    headers = get_frigate_headers()
+    result = {}
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Fetch events from Frigate - it returns all matching events
+            # We'll check each one for has_clip
+            for event_id in event_ids:
+                try:
+                    resp = await client.get(
+                        f"{frigate_url}/api/events/{event_id}",
+                        headers=headers,
+                        timeout=5.0
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        result[event_id] = data.get("has_clip", False)
+                    else:
+                        result[event_id] = False
+                except Exception:
+                    result[event_id] = False
+    except Exception as e:
+        log.warning("Failed to batch check clips", error=str(e))
+        # Return empty dict - frontend will show no play buttons
+        return {eid: False for eid in event_ids}
+
+    return result
+
 # Classifier instance for reclassification
 _classifier = None
 
@@ -75,7 +121,28 @@ async def get_events(
             camera=camera,
             sort=sort
         )
-        return events
+
+        # Batch fetch clip availability from Frigate (eliminates N individual HEAD requests)
+        event_ids = [e.frigate_event for e in events]
+        clip_availability = await batch_check_clips(event_ids)
+
+        # Convert to response models with clip info
+        response_events = []
+        for event in events:
+            response_event = DetectionResponse(
+                id=event.id,
+                detection_time=event.detection_time,
+                detection_index=event.detection_index,
+                score=event.score,
+                display_name=event.display_name,
+                category_name=event.category_name,
+                frigate_event=event.frigate_event,
+                camera_name=event.camera_name,
+                has_clip=clip_availability.get(event.frigate_event, False)
+            )
+            response_events.append(response_event)
+
+        return response_events
 
 
 @router.get("/events/count", response_model=EventsCountResponse)
