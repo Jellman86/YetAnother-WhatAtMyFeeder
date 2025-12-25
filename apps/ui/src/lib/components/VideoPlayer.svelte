@@ -52,14 +52,7 @@
         </button>
 
         <!-- Video Container -->
-        <div class="relative bg-black rounded-xl overflow-hidden shadow-2xl">
-            {#if !videoLoaded && !videoError}
-                <!-- Loading spinner -->
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <div class="w-12 h-12 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin"></div>
-                </div>
-            {/if}
-
+        <div class="relative bg-black rounded-xl overflow-hidden shadow-2xl min-h-[300px] aspect-video flex items-center justify-center">
             {#if videoError}
                 <div class="flex flex-col items-center justify-center py-16 text-white/60">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -69,11 +62,21 @@
                     <p class="text-sm mt-1">The clip could not be loaded</p>
                 </div>
             {:else}
-                <!-- eslint-disable-next-line svelte/valid-compile -->
+                <!-- Loading spinner - shows until video is ready -->
+                {#if !videoLoaded}
+                    <div class="absolute inset-0 flex items-center justify-center bg-black z-10">
+                        <div class="flex flex-col items-center gap-3">
+                            <div class="w-12 h-12 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin"></div>
+                            <p class="text-white/60 text-sm">Loading video...</p>
+                        </div>
+                    </div>
+                {/if}
+
                 <video
                     controls
                     autoplay
-                    class="w-full max-h-[80vh] {videoLoaded ? '' : 'opacity-0 absolute'}"
+                    playsinline
+                    class="w-full h-full object-contain"
                     onloadeddata={() => videoLoaded = true}
                     onerror={() => videoError = true}
                 >
