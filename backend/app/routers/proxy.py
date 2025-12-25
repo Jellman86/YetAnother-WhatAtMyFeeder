@@ -119,62 +119,35 @@ async def check_clip_exists(event_id: str = Path(..., min_length=1, max_length=6
 
 @router.get("/frigate/{event_id}/clip.mp4")
 async def proxy_clip(
-    request: Request,
     event_id: str = Path(..., min_length=1, max_length=64)
 ):
-    """Stream video clip from Frigate with Range request support."""
-    from fastapi.responses import StreamingResponse
-
+    """Proxy video clip from Frigate."""
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
 
     clip_url = f"{settings.frigate.frigate_url}/api/events/{event_id}/clip.mp4"
     headers = get_frigate_headers()
 
-    # First, verify the clip exists by checking event metadata
-    event_url = f"{settings.frigate.frigate_url}/api/events/{event_id}"
-    client = get_http_client()
+    # Fetch the clip directly (simpler, more reliable than streaming)
     try:
-        event_resp = await client.get(event_url, headers=headers, timeout=10.0)
-        if event_resp.status_code == 404:
-            raise HTTPException(status_code=404, detail="Event not found")
-        event_resp.raise_for_status()
-        event_data = event_resp.json()
-        if not event_data.get("has_clip", False):
-            raise HTTPException(status_code=404, detail="Clip not available for this event")
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.get(clip_url, headers=headers)
+            if resp.status_code == 404:
+                raise HTTPException(status_code=404, detail="Clip not found")
+            resp.raise_for_status()
+
+            return Response(
+                content=resp.content,
+                media_type="video/mp4",
+                headers={
+                    "Content-Disposition": f"inline; filename={event_id}.mp4",
+                    "Accept-Ranges": "bytes",
+                }
+            )
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Frigate request timed out")
     except httpx.RequestError:
         raise HTTPException(status_code=502, detail="Failed to connect to Frigate")
-
-    # Build request headers, forwarding Range if present for seeking support
-    request_headers = dict(headers)
-    range_header = request.headers.get("range")
-    if range_header:
-        request_headers["Range"] = range_header
-
-    # Stream the clip from Frigate
-    async def stream_clip():
-        async with httpx.AsyncClient(timeout=None) as stream_client:
-            async with stream_client.stream("GET", clip_url, headers=request_headers) as resp:
-                resp.raise_for_status()
-                async for chunk in resp.aiter_bytes(chunk_size=65536):
-                    yield chunk
-
-    # Determine response status and headers based on Range request
-    response_headers = {
-        "Content-Disposition": f"inline; filename={event_id}.mp4",
-        "Accept-Ranges": "bytes",
-    }
-
-    # For range requests, we need to return 206 Partial Content
-    # For simplicity, we'll let the StreamingResponse handle it with 200
-    # The Accept-Ranges header tells the client we support ranges
-    return StreamingResponse(
-        stream_clip(),
-        media_type="video/mp4",
-        headers=response_headers
-    )
 
 @router.get("/frigate/{event_id}/thumbnail.jpg")
 async def proxy_thumb(event_id: str = Path(..., min_length=1, max_length=64)):
