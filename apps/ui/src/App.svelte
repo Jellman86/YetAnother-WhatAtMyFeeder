@@ -6,7 +6,7 @@
   import Events from './lib/pages/Events.svelte';
   import Species from './lib/pages/Species.svelte';
   import Settings from './lib/pages/Settings.svelte';
-  import { fetchEvents, type Detection } from './lib/api';
+  import { fetchEvents, fetchEventsCount, type Detection } from './lib/api';
   import { theme } from './lib/stores/theme';
 
   // Maximum detections to keep in memory for Dashboard
@@ -43,10 +43,10 @@
           // Load recent detections for dashboard
           detections = await fetchEvents({ limit: MAX_DASHBOARD_DETECTIONS });
 
-          // Get today's count for stats
+          // Get today's count for stats (use count endpoint, not fetching all events)
           const today = new Date().toISOString().split('T')[0];
-          const todayEvents = await fetchEvents({ limit: 1000, startDate: today, endDate: today });
-          totalDetectionsToday = todayEvents.length;
+          const countResult = await fetchEventsCount({ startDate: today, endDate: today });
+          totalDetectionsToday = countResult.count;
       } catch (e) {
           console.error(e);
       }
