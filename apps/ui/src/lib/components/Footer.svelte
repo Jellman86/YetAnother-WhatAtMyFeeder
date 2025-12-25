@@ -1,13 +1,16 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchVersion } from '../api';
+    import { fetchVersion, type VersionInfo } from '../api';
 
     let version = $state("2.0.0");
+    let versionInfo = $state<VersionInfo>({ version: "2.0.0", base_version: "2.0.0", git_hash: "unknown" });
     const year = new Date().getFullYear();
 
     onMount(async () => {
-        const versionInfo = await fetchVersion();
-        version = versionInfo.version;
+        const info = await fetchVersion();
+        versionInfo = info;
+        // Show clean version - hide "+unknown" suffix if git hash isn't available
+        version = info.git_hash === "unknown" ? info.base_version : info.version;
     });
 
     // Bird facts - mix of real and funny
@@ -69,7 +72,7 @@
                     Yet Another WhosAtMyFeeder
                 </span>
                 <span class="hidden sm:inline text-slate-400 dark:text-slate-500">|</span>
-                <span>v{version}</span>
+                <span title={versionInfo.git_hash !== "unknown" ? `Git: ${versionInfo.git_hash}` : ""}>v{version}</span>
             </div>
 
             <div class="flex items-center gap-4">

@@ -10,8 +10,9 @@
 
     let videoError = $state(false);
     let videoLoaded = $state(false);
-
-    const clipUrl = getClipUrl(frigateEvent);
+    let retryCount = $state(0);
+    let clipUrl = $state(getClipUrl(frigateEvent));
+    const maxRetries = 2;
 
     function handleKeydown(event: KeyboardEvent) {
         if (event.key === 'Escape') {
@@ -22,6 +23,16 @@
     function handleBackdropClick(event: MouseEvent) {
         if (event.target === event.currentTarget) {
             onClose();
+        }
+    }
+
+    function retryLoad() {
+        if (retryCount < maxRetries) {
+            retryCount++;
+            videoError = false;
+            videoLoaded = false;
+            // Add cache buster to force reload
+            clipUrl = getClipUrl(frigateEvent) + `?retry=${retryCount}`;
         }
     }
 </script>
@@ -60,6 +71,18 @@
                     </svg>
                     <p class="text-lg">Video unavailable</p>
                     <p class="text-sm mt-1">The clip could not be loaded</p>
+                    {#if retryCount < maxRetries}
+                        <button
+                            onclick={retryLoad}
+                            class="mt-4 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg
+                                   transition-colors duration-200 flex items-center gap-2"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Retry
+                        </button>
+                    {/if}
                 </div>
             {:else}
                 <!-- Loading spinner - shows until video is ready -->

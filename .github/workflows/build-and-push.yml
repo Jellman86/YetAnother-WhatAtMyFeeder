@@ -29,11 +29,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
       - name: Build and push backend
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           push: true
+          build-args: |
+            GIT_HASH=${{ env.SHORT_SHA }}
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wamf-backend:latest
             ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ github.sha }}
@@ -58,11 +63,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
       - name: Build and push frontend
         uses: docker/build-push-action@v5
         with:
           context: ./apps/ui
           push: true
+          build-args: |
+            GIT_HASH=${{ env.SHORT_SHA }}
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:latest
             ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:${{ github.sha }}
