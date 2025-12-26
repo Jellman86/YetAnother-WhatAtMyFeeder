@@ -96,6 +96,9 @@ class ModelInstance:
         # Convert to numpy array - shape will be (height, width, 3)
         input_data = np.array(image, dtype=np.uint8)
 
+        # Convert RGB to BGR - some models expect BGR channel order
+        input_data = input_data[:, :, ::-1]
+
         # Add batch dimension - shape becomes (1, height, width, 3)
         input_data = np.expand_dims(input_data, axis=0)
 
