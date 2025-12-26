@@ -15,6 +15,7 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 2. Runs it through a bird classification model
 3. Shows you what species it thinks it is
 4. Keeps track of all your visitors in a nice dashboard
+5. Proxies video clips from Frigate with full streaming and seeking support
 
 ## How It Works
 
@@ -176,6 +177,7 @@ Most settings can be changed through the web UI under Settings. They get saved t
 | Frigate URL | Where to fetch snapshots from | http://frigate:5000 |
 | MQTT Server | Your MQTT broker hostname | mqtt |
 | Classification Threshold | How confident the model needs to be (0-1) | 0.7 |
+| Fetch Video Clips | Enable/disable proxying clips from Frigate (saves bandwidth) | Enabled |
 
 ## Tech Stack
 
@@ -183,6 +185,13 @@ Most settings can be changed through the web UI under Settings. They get saved t
 - **Frontend:** Svelte 5, Tailwind CSS
 - **ML:** TensorFlow Lite bird classifier
 - **Messaging:** MQTT for Frigate events, SSE for live UI updates
+
+## Video Playback & Bandwidth
+
+YA-WAMF includes a robust video proxy that streams clips directly from Frigate. This supports:
+- **Instant Playback:** Starts playing immediately without waiting for the whole file.
+- **Seeking:** You can jump to any part of the video (scrubbing) thanks to HTTP Range support.
+- **Bandwidth Control:** If you are on a metered connection or want to reduce load, you can disable "Fetch Video Clips" in the Settings. This prevents the backend from fetching heavy video files.
 
 ## Contributing
 

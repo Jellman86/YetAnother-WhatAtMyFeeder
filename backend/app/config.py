@@ -16,6 +16,7 @@ class FrigateSettings(BaseModel):
     frigate_auth_token: Optional[str] = Field(None, description="Optional Bearer token for Frigate proxy auth")
     main_topic: str = "frigate"
     camera: list[str] = Field(default_factory=list, description="List of cameras to monitor")
+    clips_enabled: bool = Field(default=True, description="Enable fetching of video clips from Frigate")
     mqtt_server: str = "mqtt"
     mqtt_port: int = 1883
     mqtt_auth: bool = False
@@ -60,6 +61,7 @@ class Settings(BaseSettings):
             'frigate_url': os.environ.get('FRIGATE__FRIGATE_URL', 'http://frigate:5000'),
             'frigate_auth_token': os.environ.get('FRIGATE__FRIGATE_AUTH_TOKEN', None),
             'main_topic': os.environ.get('FRIGATE__MAIN_TOPIC', 'frigate'),
+            'clips_enabled': os.environ.get('FRIGATE__CLIPS_ENABLED', 'true').lower() == 'true',
             'mqtt_server': os.environ.get('FRIGATE__MQTT_SERVER', 'mqtt'),
             'mqtt_port': int(os.environ.get('FRIGATE__MQTT_PORT', '1883')),
             'mqtt_auth': os.environ.get('FRIGATE__MQTT_AUTH', 'false').lower() == 'true',

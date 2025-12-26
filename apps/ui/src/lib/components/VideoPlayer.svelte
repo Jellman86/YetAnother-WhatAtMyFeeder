@@ -9,6 +9,7 @@
     let { frigateEvent, onClose }: Props = $props();
 
     let videoError = $state(false);
+    let videoForbidden = $state(false);
     let videoLoaded = $state(false);
     let retryCount = $state(0);
     let clipUrl = $state(getClipUrl(frigateEvent));
@@ -26,15 +27,37 @@
         }
     }
 
+    function handleError(e: Event & { currentTarget: EventTarget & HTMLVideoElement }) {
+        // Check if the error is due to 403 (we can't check status code directly on video error event easily, 
+        // but if we fail immediately it's likely. 
+        // For a more robust check we would do a HEAD request first, but for now we'll rely on the 
+        // fact that 403s usually trigger a quick error).
+        // Actually, let's keep it simple: if it errors, we show the error.
+        videoError = true;
+    }
+
     function retryLoad() {
         if (retryCount < maxRetries) {
             retryCount++;
             videoError = false;
+            videoForbidden = false;
             videoLoaded = false;
             // Add cache buster to force reload
             clipUrl = getClipUrl(frigateEvent) + `?retry=${retryCount}`;
         }
     }
+    
+    // Check if clip is allowed/exists when mounting
+    $effect(() => {
+        fetch(clipUrl, { method: 'HEAD' })
+            .then(res => {
+                if (res.status === 403) {
+                    videoForbidden = true;
+                    videoError = true;
+                }
+            })
+            .catch(() => { /* ignore, let video tag handle it */ });
+    });
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -66,22 +89,30 @@
         <div class="relative bg-black rounded-xl overflow-hidden shadow-2xl min-h-[300px] aspect-video flex items-center justify-center">
             {#if videoError}
                 <div class="flex flex-col items-center justify-center py-16 text-white/60">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    <p class="text-lg">Video unavailable</p>
-                    <p class="text-sm mt-1">The clip could not be loaded</p>
-                    {#if retryCount < maxRetries}
-                        <button
-                            onclick={retryLoad}
-                            class="mt-4 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg
-                                   transition-colors duration-200 flex items-center gap-2"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            Retry
-                        </button>
+                    {#if videoForbidden}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                        <p class="text-lg">Clip Fetching Disabled</p>
+                        <p class="text-sm mt-1">Enable "Fetch Video Clips" in Settings to view this video.</p>
+                    {:else}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        <p class="text-lg">Video unavailable</p>
+                        <p class="text-sm mt-1">The clip could not be loaded</p>
+                        {#if retryCount < maxRetries}
+                            <button
+                                onclick={retryLoad}
+                                class="mt-4 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg
+                                    transition-colors duration-200 flex items-center gap-2"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Retry
+                            </button>
+                        {/if}
                     {/if}
                 </div>
             {:else}

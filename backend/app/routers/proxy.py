@@ -1,5 +1,7 @@
 import re
 from fastapi import APIRouter, HTTPException, Response, Path, Request
+from fastapi.responses import StreamingResponse
+from starlette.background import BackgroundTask
 import httpx
 from app.config import settings
 
@@ -92,6 +94,9 @@ async def proxy_snapshot(event_id: str = Path(..., min_length=1, max_length=64))
 @router.head("/frigate/{event_id}/clip.mp4")
 async def check_clip_exists(event_id: str = Path(..., min_length=1, max_length=64)):
     """Check if a clip exists for an event by checking the event details."""
+    if not settings.frigate.clips_enabled:
+        raise HTTPException(status_code=403, detail="Clip fetching is disabled")
+    
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
     # Frigate doesn't support HEAD for clips, so check event exists instead
@@ -119,33 +124,56 @@ async def check_clip_exists(event_id: str = Path(..., min_length=1, max_length=6
 
 @router.get("/frigate/{event_id}/clip.mp4")
 async def proxy_clip(
+    request: Request,
     event_id: str = Path(..., min_length=1, max_length=64)
 ):
-    """Proxy video clip from Frigate."""
+    """Proxy video clip from Frigate with Range support and streaming."""
+    if not settings.frigate.clips_enabled:
+        raise HTTPException(status_code=403, detail="Clip fetching is disabled")
+
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
 
     clip_url = f"{settings.frigate.frigate_url}/api/events/{event_id}/clip.mp4"
     headers = get_frigate_headers()
+    
+    # Forward Range header if present
+    range_header = request.headers.get("range")
+    if range_header:
+        headers["Range"] = range_header
 
-    # Fetch the clip directly (simpler, more reliable than streaming)
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.get(clip_url, headers=headers)
-            if resp.status_code == 404:
-                raise HTTPException(status_code=404, detail="Clip not found")
-            resp.raise_for_status()
+        client = httpx.AsyncClient(timeout=120.0)
+        req = client.build_request("GET", clip_url, headers=headers)
+        r = await client.send(req, stream=True)
+        
+        if r.status_code == 404:
+            await r.aclose()
+            await client.aclose()
+            raise HTTPException(status_code=404, detail="Clip not found")
 
-            return Response(
-                content=resp.content,
-                media_type="video/mp4",
-                headers={
-                    "Content-Disposition": f"inline; filename={event_id}.mp4",
-                    "Accept-Ranges": "bytes",
-                }
-            )
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Frigate request timed out")
+        # Forward specific headers
+        response_headers = {
+            "Accept-Ranges": "bytes",
+            "Content-Disposition": f"inline; filename={event_id}.mp4",
+        }
+        
+        if "content-length" in r.headers:
+            response_headers["Content-Length"] = r.headers["content-length"]
+        if "content-range" in r.headers:
+            response_headers["Content-Range"] = r.headers["content-range"]
+        if "content-type" in r.headers:
+            response_headers["Content-Type"] = r.headers["content-type"]
+        else:
+            response_headers["Content-Type"] = "video/mp4"
+
+        return StreamingResponse(
+            r.aiter_bytes(),
+            status_code=r.status_code,
+            headers=response_headers,
+            background=BackgroundTask(client.aclose)
+        )
+
     except httpx.RequestError:
         raise HTTPException(status_code=502, detail="Failed to connect to Frigate")
 

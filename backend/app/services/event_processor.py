@@ -145,3 +145,7 @@ class EventProcessor:
             await self.http_client.post(url, json=payload, headers=headers, timeout=10.0)
         except Exception as e:
             log.error("Failed to set sublabel", error=str(e))
+
+    async def close(self):
+        """Close the HTTP client resource."""
+        await self.http_client.aclose()

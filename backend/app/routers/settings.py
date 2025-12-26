@@ -18,6 +18,7 @@ class SettingsUpdate(BaseModel):
     mqtt_auth: bool = Field(False, description="Enable MQTT authentication")
     mqtt_username: Optional[str] = Field(None, description="MQTT username")
     mqtt_password: Optional[str] = Field(None, description="MQTT password")
+    clips_enabled: bool = Field(True, description="Enable fetching of video clips from Frigate")
     classification_threshold: float = Field(..., ge=0.0, le=1.0, description="Classification confidence threshold (0-1)")
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
@@ -39,6 +40,7 @@ async def get_settings():
         "mqtt_auth": settings.frigate.mqtt_auth,
         "mqtt_username": settings.frigate.mqtt_username,
         "mqtt_password": settings.frigate.mqtt_password,
+        "clips_enabled": settings.frigate.clips_enabled,
         "classification_threshold": settings.classification.threshold,
         "cameras": settings.frigate.camera,
         "retention_days": settings.maintenance.retention_days,
@@ -56,6 +58,7 @@ async def update_settings(update: SettingsUpdate):
     if update.mqtt_password is not None:
         settings.frigate.mqtt_password = update.mqtt_password
 
+    settings.frigate.clips_enabled = update.clips_enabled
     settings.frigate.camera = update.cameras
     settings.classification.threshold = update.classification_threshold
     settings.maintenance.retention_days = update.retention_days
