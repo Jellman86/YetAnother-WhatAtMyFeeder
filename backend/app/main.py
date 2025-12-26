@@ -217,19 +217,21 @@ async def wildlife_classifier_debug():
 
 @app.post("/api/classifier/wildlife/download")
 async def download_wildlife_model():
-    """Download a general wildlife/animal classifier model.
+    """Download EfficientNet-Lite4 for wildlife/animal classification.
 
-    Uses MobileNet V2 trained on ImageNet-1001 which includes many animal classes.
-    This is a well-tested quantized model (~14MB) with reliable preprocessing.
+    Uses EfficientNet-Lite4 trained on ImageNet-1000 classes.
+    - Input: 300x300 RGB float32, normalized to [-1, 1]
+    - Output: 1000 ImageNet classes
+    - Model size: ~50MB
     """
     import httpx
     import tarfile
     import io
     from pathlib import Path
 
-    # MobileNet V2 quantized model - well-tested, reliable preprocessing
-    # 224x224 input, uint8 quantized, 1001 classes (background + 1000 ImageNet)
-    MODEL_TAR_URL = "https://storage.googleapis.com/download.tensorflow.org/models/tflite_11_05_08/mobilenet_v2_1.0_224_quant.tgz"
+    # EfficientNet-Lite4 - well-documented, reliable model
+    # 300x300 input, float32, 1000 classes
+    MODEL_TAR_URL = "https://storage.googleapis.com/cloud-tpu-checkpoints/efficientnet/lite/efficientnet-lite4.tar.gz"
     LABELS_URL = "https://storage.googleapis.com/download.tensorflow.org/data/ImageNetLabels.txt"
 
     # Use persistent /data/models directory
@@ -238,41 +240,52 @@ async def download_wildlife_model():
     model_path = models_dir / settings.classification.wildlife_model
     labels_path = models_dir / settings.classification.wildlife_labels
 
-    # Check if model already exists
-    if model_path.exists() and labels_path.exists():
-        log.info("Wildlife model already exists, skipping download", path=str(model_path))
-        with open(labels_path, 'r') as f:
-            label_count = sum(1 for line in f if line.strip())
-        return {
-            "status": "ok",
-            "message": "Wildlife model already downloaded",
-            "labels_count": label_count
-        }
+    # Delete old model to force re-download
+    if model_path.exists():
+        model_path.unlink()
+        log.info("Deleted old wildlife model for re-download")
+    if labels_path.exists():
+        labels_path.unlink()
+        log.info("Deleted old wildlife labels for re-download")
 
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
 
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=120.0) as client:
-            # Download the MobileNet V2 tar.gz archive
-            log.info("Downloading MobileNet V2 model...")
+        async with httpx.AsyncClient(follow_redirects=True, timeout=300.0) as client:
+            # Download the EfficientNet-Lite4 tar.gz archive
+            log.info("Downloading EfficientNet-Lite4 model (~50MB)...")
             model_response = await client.get(MODEL_TAR_URL, headers=headers)
             model_response.raise_for_status()
 
             content = model_response.content
             log.info("Downloaded archive", size_mb=len(content) / (1024 * 1024))
 
-            # Extract the TFLite model from the archive
+            # Extract the float32 TFLite model from the archive
+            # Look for the fp32 model, not the quantized int8 version
             tflite_content = None
             with tarfile.open(fileobj=io.BytesIO(content), mode='r:gz') as tar:
+                # List all files to find the right one
                 for member in tar.getmembers():
-                    if member.name.endswith('.tflite'):
+                    log.debug(f"Archive contains: {member.name}")
+                    # Prefer the float model (not int8 quantized)
+                    if member.name.endswith('.tflite') and 'int8' not in member.name.lower():
                         f = tar.extractfile(member)
                         if f:
                             tflite_content = f.read()
                             log.info("Found TFLite model", name=member.name, size_mb=len(tflite_content) / (1024 * 1024))
                             break
+
+                # Fallback to any tflite file if no float model found
+                if tflite_content is None:
+                    for member in tar.getmembers():
+                        if member.name.endswith('.tflite'):
+                            f = tar.extractfile(member)
+                            if f:
+                                tflite_content = f.read()
+                                log.info("Found TFLite model (fallback)", name=member.name, size_mb=len(tflite_content) / (1024 * 1024))
+                                break
 
             if tflite_content is None:
                 raise Exception("No TFLite model found in archive")
@@ -287,9 +300,16 @@ async def download_wildlife_model():
             labels_response.raise_for_status()
 
             # ImageNet labels file has 1001 classes (background at index 0, then 1000 classes)
-            # MobileNet V2 outputs 1001 classes matching this exactly - no offset needed
+            # Skip background class for EfficientNet which outputs 1000 classes
             lines = labels_response.text.strip().split('\n')
-            processed_labels = [line.strip() for line in lines if line.strip()]
+            all_labels = [line.strip() for line in lines if line.strip()]
+
+            # Check if first label is "background" and skip it
+            if all_labels and all_labels[0].lower() == 'background':
+                processed_labels = all_labels[1:]  # Skip background, indices 0-999 map to labels 1-1000
+                log.info("Skipped background label, using 1000 ImageNet classes")
+            else:
+                processed_labels = all_labels
 
             with open(labels_path, 'w') as f:
                 for label in processed_labels:
@@ -300,8 +320,10 @@ async def download_wildlife_model():
                      model_size_mb=len(tflite_content) / (1024 * 1024))
             return {
                 "status": "ok",
-                "message": f"Downloaded MobileNet V2 wildlife model with {len(processed_labels)} labels",
-                "labels_count": len(processed_labels)
+                "message": f"Downloaded EfficientNet-Lite4 with {len(processed_labels)} labels",
+                "labels_count": len(processed_labels),
+                "model": "EfficientNet-Lite4",
+                "input_size": "300x300"
             }
 
     except httpx.HTTPStatusError as e:

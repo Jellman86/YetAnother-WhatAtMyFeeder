@@ -70,84 +70,86 @@ class ModelInstance:
             return False
 
     def classify(self, image: Image.Image) -> list[dict]:
-        """Classify an image using this model."""
+        """Classify an image using this model.
+
+        Preprocessing for EfficientNet-Lite4:
+        - Input: 300x300 (or model-specified size) RGB float32
+        - Normalization: (pixel - 127) / 128 → range [-1, 1]
+        - Output: Apply softmax to convert logits to probabilities
+        """
         if not self.loaded or not self.interpreter:
             log.warning(f"{self.name} model not loaded, cannot classify")
             return []
 
-        # Get expected input size from model (supports different models like 224x224, 300x300)
+        # Get expected input size from model
         input_details = self.input_details[0]
         input_shape = input_details['shape']
+
         # Shape is typically [1, height, width, 3] for image models
         if len(input_shape) == 4:
             target_height, target_width = input_shape[1], input_shape[2]
         else:
-            target_height, target_width = 224, 224  # Fallback
+            target_height, target_width = 300, 300  # EfficientNet-Lite4 default
 
-        log.debug(f"{self.name} classify: input image mode={image.mode}, size={image.size}")
+        log.info(f"{self.name} classify: input image mode={image.mode}, size={image.size}, "
+                 f"target={target_width}x{target_height}, model_dtype={input_details['dtype']}")
 
-        # CRITICAL: Convert to RGB mode first (handles RGBA, grayscale, palette, etc.)
+        # Step 1: Convert to RGB (handles RGBA, grayscale, palette, etc.)
         image = image.convert('RGB')
 
-        # Resize to exact target size (not thumbnail which preserves aspect ratio)
-        # Using LANCZOS for high-quality downsampling
+        # Step 2: Resize to exact target size using high-quality resampling
         image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
 
-        # Convert to numpy array - shape will be (height, width, 3)
-        input_data = np.array(image, dtype=np.uint8)
+        # Step 3: Convert to numpy array (uint8, range 0-255)
+        input_data = np.array(image, dtype=np.float32)
 
-        # Convert RGB to BGR - some models expect BGR channel order
-        input_data = input_data[:, :, ::-1]
+        # Step 4: Normalize based on model input type
+        if input_details['dtype'] == np.float32:
+            # EfficientNet-Lite normalization: (pixel - 127) / 128 → range [-1, 1]
+            input_data = (input_data - 127.0) / 128.0
+            log.debug(f"{self.name}: Normalized to [-1,1], range=[{input_data.min():.2f}, {input_data.max():.2f}]")
+        elif input_details['dtype'] == np.uint8:
+            # Quantized models: keep as uint8
+            input_data = np.array(image, dtype=np.uint8)
 
-        # Add batch dimension - shape becomes (1, height, width, 3)
+        # Step 5: Add batch dimension - shape becomes (1, height, width, 3)
         input_data = np.expand_dims(input_data, axis=0)
 
-        log.debug(f"{self.name} classify: input_data shape={input_data.shape}, dtype={input_data.dtype}")
+        log.debug(f"{self.name}: input_data shape={input_data.shape}, dtype={input_data.dtype}")
 
-        # Handle input type conversion
-        if input_details['dtype'] == np.float32:
-            # Float models: normalize to [-1, 1] range (MobileNet style)
-            input_data = (np.float32(input_data) - 127.5) / 127.5
-        elif input_details['dtype'] == np.uint8:
-            # Quantized models: use raw uint8 pixel values [0, 255]
-            input_data = np.uint8(input_data)
-
+        # Run inference
         self.interpreter.set_tensor(input_details['index'], input_data)
         self.interpreter.invoke()
 
+        # Get output
         output_details = self.output_details[0]
         output_data = self.interpreter.get_tensor(output_details['index'])
 
-        log.debug(f"{self.name} classify: output shape={output_data.shape}, dtype={output_data.dtype}")
+        log.debug(f"{self.name}: output shape={output_data.shape}, dtype={output_data.dtype}")
 
-        # Process output - handle quantized outputs properly
+        # Process output
         results = np.squeeze(output_data).astype(np.float32)
 
-        # Dequantize output if needed (check OUTPUT dtype, not input)
+        # Dequantize if output is uint8
         if output_details['dtype'] == np.uint8:
-            # Get quantization parameters from output details
             quant_params = output_details.get('quantization_parameters', {})
             scales = quant_params.get('scales', None)
             zero_points = quant_params.get('zero_points', None)
 
-            log.debug(f"{self.name} classify: output quant params scales={scales}, zero_points={zero_points}")
-
             if scales is not None and len(scales) > 0:
-                # Proper dequantization: real_value = (quantized - zero_point) * scale
                 scale = scales[0]
                 zero_point = zero_points[0] if zero_points is not None and len(zero_points) > 0 else 0
                 results = (results - zero_point) * scale
-                log.debug(f"{self.name} classify: dequantized with scale={scale}, zero_point={zero_point}")
+                log.debug(f"{self.name}: dequantized with scale={scale}, zero_point={zero_point}")
             else:
-                # Fallback: simple normalization to [0, 1]
                 results = results / 255.0
-                log.debug(f"{self.name} classify: fallback normalization (div 255)")
 
         # Apply softmax to convert logits to probabilities
-        # MobileNet and similar models output logits, not probabilities
-        exp_results = np.exp(results - np.max(results))  # Subtract max for numerical stability
+        # Subtract max for numerical stability
+        exp_results = np.exp(results - np.max(results))
         results = exp_results / np.sum(exp_results)
-        log.debug(f"{self.name} classify: applied softmax, max prob={results.max():.4f}")
+
+        log.debug(f"{self.name}: after softmax, max prob={results.max():.4f}, sum={results.sum():.4f}")
 
         # Get top-5 predictions
         top_k = results.argsort()[-5:][::-1]
@@ -162,8 +164,8 @@ class ModelInstance:
                 "label": label
             })
 
-        top_results = [(c['label'], round(c['score'], 3)) for c in classifications[:3]]
-        log.info(f"{self.name} classify: top results: {top_results}")
+        top_results = [(c['label'], f"{c['score']*100:.1f}%") for c in classifications[:3]]
+        log.info(f"{self.name} classify results: {top_results}")
 
         return classifications
 
