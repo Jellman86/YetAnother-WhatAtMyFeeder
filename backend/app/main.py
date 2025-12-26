@@ -161,19 +161,17 @@ async def wildlife_classifier_labels():
 async def download_wildlife_model():
     """Download a general wildlife/animal classifier model.
 
-    Uses EfficientNet-Lite4 trained on ImageNet-1000 which includes many animal classes.
-    This larger model offers better accuracy (~80.4% top-1) and is suitable for
-    occasional use where inference time (2-3s per image on CPU) is acceptable.
+    Uses MobileNet V2 trained on ImageNet-1001 which includes many animal classes.
+    This is a well-tested quantized model (~14MB) with reliable preprocessing.
     """
     import httpx
     import tarfile
     import io
     from pathlib import Path
 
-    # EfficientNet-Lite4: Best accuracy in the Lite family (~80.4% top-1 on ImageNet)
-    # Each checkpoint contains FP32 and INT8 quantized TFLite models
-    # We use INT8 for smaller size and faster CPU inference
-    MODEL_TAR_URL = "https://storage.googleapis.com/cloud-tpu-checkpoints/efficientnet/lite/efficientnet-lite4.tar.gz"
+    # MobileNet V2 quantized model - well-tested, reliable preprocessing
+    # 224x224 input, uint8 quantized, 1001 classes (background + 1000 ImageNet)
+    MODEL_TAR_URL = "https://storage.googleapis.com/download.tensorflow.org/models/tflite_11_05_08/mobilenet_v2_1.0_224_quant.tgz"
     LABELS_URL = "https://storage.googleapis.com/download.tensorflow.org/data/ImageNetLabels.txt"
 
     # Use persistent /data/models directory
@@ -185,7 +183,6 @@ async def download_wildlife_model():
     # Check if model already exists
     if model_path.exists() and labels_path.exists():
         log.info("Wildlife model already exists, skipping download", path=str(model_path))
-        # Count labels
         with open(labels_path, 'r') as f:
             label_count = sum(1 for line in f if line.strip())
         return {
@@ -199,37 +196,25 @@ async def download_wildlife_model():
     }
 
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=300.0) as client:
-            # Download the EfficientNet-Lite4 tar.gz archive
-            log.info("Downloading EfficientNet-Lite4 model (this may take a moment)...")
+        async with httpx.AsyncClient(follow_redirects=True, timeout=120.0) as client:
+            # Download the MobileNet V2 tar.gz archive
+            log.info("Downloading MobileNet V2 model...")
             model_response = await client.get(MODEL_TAR_URL, headers=headers)
             model_response.raise_for_status()
 
             content = model_response.content
             log.info("Downloaded archive", size_mb=len(content) / (1024 * 1024))
 
-            # Extract the INT8 quantized TFLite model from the archive
+            # Extract the TFLite model from the archive
             tflite_content = None
             with tarfile.open(fileobj=io.BytesIO(content), mode='r:gz') as tar:
                 for member in tar.getmembers():
-                    log.debug("Archive member", name=member.name)
-                    # Look for the INT8 quantized model (smaller, faster on CPU)
-                    if 'int8' in member.name.lower() and member.name.endswith('.tflite'):
+                    if member.name.endswith('.tflite'):
                         f = tar.extractfile(member)
                         if f:
                             tflite_content = f.read()
-                            log.info("Found INT8 quantized model", name=member.name, size_mb=len(tflite_content) / (1024 * 1024))
+                            log.info("Found TFLite model", name=member.name, size_mb=len(tflite_content) / (1024 * 1024))
                             break
-
-                # If no INT8 model, try to find any .tflite file
-                if tflite_content is None:
-                    for member in tar.getmembers():
-                        if member.name.endswith('.tflite'):
-                            f = tar.extractfile(member)
-                            if f:
-                                tflite_content = f.read()
-                                log.info("Found TFLite model", name=member.name, size_mb=len(tflite_content) / (1024 * 1024))
-                                break
 
             if tflite_content is None:
                 raise Exception("No TFLite model found in archive")
@@ -243,19 +228,10 @@ async def download_wildlife_model():
             labels_response = await client.get(LABELS_URL, headers=headers)
             labels_response.raise_for_status()
 
-            # ImageNet labels file has 1001 classes: index 0 is "background", indices 1-1000 are the classes
-            # EfficientNet outputs indices 0-999 for the 1000 ImageNet classes
-            # So we skip the first "background" label to align indices correctly
+            # ImageNet labels file has 1001 classes (background at index 0, then 1000 classes)
+            # MobileNet V2 outputs 1001 classes matching this exactly - no offset needed
             lines = labels_response.text.strip().split('\n')
-            processed_labels = []
-            for i, line in enumerate(lines):
-                label = line.strip()
-                # Skip the "background" label at index 0
-                if i == 0 and label.lower() == 'background':
-                    log.debug("Skipping background label at index 0")
-                    continue
-                if label:
-                    processed_labels.append(label)
+            processed_labels = [line.strip() for line in lines if line.strip()]
 
             with open(labels_path, 'w') as f:
                 for label in processed_labels:
@@ -266,7 +242,7 @@ async def download_wildlife_model():
                      model_size_mb=len(tflite_content) / (1024 * 1024))
             return {
                 "status": "ok",
-                "message": f"Downloaded EfficientNet-Lite4 wildlife model with {len(processed_labels)} labels",
+                "message": f"Downloaded MobileNet V2 wildlife model with {len(processed_labels)} labels",
                 "labels_count": len(processed_labels)
             }
 

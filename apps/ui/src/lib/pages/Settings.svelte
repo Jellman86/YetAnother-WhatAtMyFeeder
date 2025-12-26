@@ -696,14 +696,14 @@
                 {/if}
                 {#if downloadingWildlifeModel}
                     <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                        Downloading EfficientNet-Lite4 model (~50MB). This may take a moment...
+                        Downloading MobileNet V2 model (~14MB)...
                     </p>
                 {/if}
             </div>
 
             <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                This model uses EfficientNet-Lite4 trained on ImageNet for general animal classification.
-                Inference runs on CPU and may take 2-3 seconds per image.
+                Uses MobileNet V2 trained on ImageNet (1001 classes including many animals).
+                Fast inference on CPU.
             </p>
         </section>
 

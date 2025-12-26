@@ -211,8 +211,8 @@ Sometimes non-birds show up at your feeder - squirrels, raccoons, foxes, and mor
 - Click a result to apply it as the species label
 
 **Model Details:**
-- Uses EfficientNet-Lite4 trained on ImageNet (1000+ classes)
-- Runs entirely on CPU (~2-3 seconds per image)
+- Uses MobileNet V2 trained on ImageNet (1001 classes)
+- Fast CPU inference (~14MB model)
 - Includes common backyard animals: squirrels, foxes, rabbits, raccoons, deer, skunks, and more
 
 ## Contributing

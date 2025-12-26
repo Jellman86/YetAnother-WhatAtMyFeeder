@@ -886,13 +886,12 @@ unknown_bird_labels: list[str] = Field(
 
 ### Wildlife Classifier Notes
 
-The wildlife classifier uses EfficientNet-Lite4 trained on ImageNet-1000:
-- **Input size:** 300x300 (auto-detected from model)
-- **Normalization:** [0, 1] range (different from MobileNet's [-1, 1])
-- **Classes:** 1000 ImageNet categories (animals, objects, etc.)
-- **Inference:** ~2-3 seconds per image on CPU
-
-The classifier service auto-detects the model type based on input dimensions and applies the correct preprocessing.
+The wildlife classifier uses MobileNet V2 (quantized) trained on ImageNet-1001:
+- **Input size:** 224x224 (same as bird model)
+- **Model type:** Quantized uint8 (no normalization needed)
+- **Classes:** 1001 ImageNet categories (background + 1000 classes including animals)
+- **Model size:** ~14MB
+- **Inference:** Fast on CPU
 
 ### Backing Up Data
 
