@@ -929,7 +929,7 @@
                 </div>
 
                 <!-- Action buttons - Row 3: Identify Animal (Wildlife) -->
-                <div class="relative">
+                <div class="relative mt-3">
                     <button
                         onclick={handleClassifyWildlife}
                         disabled={classifyingWildlife}
