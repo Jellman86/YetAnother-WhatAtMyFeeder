@@ -144,12 +144,20 @@ class ModelInstance:
             else:
                 results = results / 255.0
 
-        # Apply softmax to convert logits to probabilities
-        # Subtract max for numerical stability
-        exp_results = np.exp(results - np.max(results))
-        results = exp_results / np.sum(exp_results)
+        # Log raw output stats before softmax
+        log.info(f"{self.name}: RAW output before softmax: min={results.min():.4f}, max={results.max():.4f}, "
+                 f"sum={results.sum():.4f}, top5_raw={sorted(results)[-5:]}")
 
-        log.debug(f"{self.name}: after softmax, max prob={results.max():.4f}, sum={results.sum():.4f}")
+        # Check if output is already probabilities (sums to ~1, all positive)
+        if results.min() >= 0 and 0.99 < results.sum() < 1.01:
+            log.info(f"{self.name}: Output appears to be probabilities already, skipping softmax")
+        else:
+            # Apply softmax to convert logits to probabilities
+            # Subtract max for numerical stability
+            exp_results = np.exp(results - np.max(results))
+            results = exp_results / np.sum(exp_results)
+
+        log.info(f"{self.name}: after processing, max prob={results.max():.4f}, sum={results.sum():.4f}")
 
         # Get top-5 predictions
         top_k = results.argsort()[-5:][::-1]
