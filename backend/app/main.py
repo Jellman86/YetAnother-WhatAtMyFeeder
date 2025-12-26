@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
 import asyncio
@@ -214,6 +214,30 @@ async def wildlife_classifier_debug():
     except Exception as e:
         import traceback
         return {"error": str(e), "traceback": traceback.format_exc()}
+
+
+@app.post("/api/classifier/wildlife/test")
+async def test_wildlife_classifier(image: UploadFile = File(...)):
+    """Test wildlife classifier with an uploaded image."""
+    from PIL import Image
+    import io
+
+    try:
+        contents = await image.read()
+        pil_image = Image.open(io.BytesIO(contents))
+
+        results = classifier.classify_wildlife(pil_image)
+
+        return {
+            "status": "ok",
+            "image_size": pil_image.size,
+            "image_mode": pil_image.mode,
+            "results": results
+        }
+    except Exception as e:
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}
+
 
 @app.post("/api/classifier/wildlife/download")
 async def download_wildlife_model():
