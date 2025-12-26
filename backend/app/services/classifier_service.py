@@ -140,6 +140,12 @@ class ModelInstance:
                 results = results / 255.0
                 log.debug(f"{self.name} classify: fallback normalization (div 255)")
 
+        # Apply softmax to convert logits to probabilities
+        # MobileNet and similar models output logits, not probabilities
+        exp_results = np.exp(results - np.max(results))  # Subtract max for numerical stability
+        results = exp_results / np.sum(exp_results)
+        log.debug(f"{self.name} classify: applied softmax, max prob={results.max():.4f}")
+
         # Get top-5 predictions
         top_k = results.argsort()[-5:][::-1]
 
