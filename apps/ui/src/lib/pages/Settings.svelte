@@ -7,10 +7,13 @@
         fetchFrigateConfig,
         fetchClassifierStatus,
         downloadDefaultModel,
+        fetchWildlifeModelStatus,
+        downloadWildlifeModel,
         fetchMaintenanceStats,
         runCleanup,
         runBackfill,
         type ClassifierStatus,
+        type WildlifeModelStatus,
         type MaintenanceStats,
         type BackfillResult
     } from '../api';
@@ -41,6 +44,9 @@
     let classifierStatus = $state<ClassifierStatus | null>(null);
     let downloadingModel = $state(false);
 
+    let wildlifeStatus = $state<WildlifeModelStatus | null>(null);
+    let downloadingWildlifeModel = $state(false);
+
     let maintenanceStats = $state<MaintenanceStats | null>(null);
     let cleaningUp = $state(false);
 
@@ -58,6 +64,7 @@
             loadSettings(),
             loadCameras(),
             loadClassifierStatus(),
+            loadWildlifeStatus(),
             loadMaintenanceStats()
         ]);
     });
@@ -117,6 +124,32 @@
             classifierStatus = await fetchClassifierStatus();
         } catch (e) {
             console.error('Failed to load classifier status', e);
+        }
+    }
+
+    async function loadWildlifeStatus() {
+        try {
+            wildlifeStatus = await fetchWildlifeModelStatus();
+        } catch (e) {
+            console.error('Failed to load wildlife status', e);
+        }
+    }
+
+    async function handleDownloadWildlifeModel() {
+        downloadingWildlifeModel = true;
+        message = null;
+        try {
+            const result = await downloadWildlifeModel();
+            if (result.status === 'ok') {
+                message = { type: 'success', text: result.message };
+                await loadWildlifeStatus();
+            } else {
+                message = { type: 'error', text: result.message };
+            }
+        } catch (e: any) {
+            message = { type: 'error', text: e.message || 'Failed to download wildlife model' };
+        } finally {
+            downloadingWildlifeModel = false;
         }
     }
 
@@ -605,6 +638,73 @@
                     </p>
                 {/if}
             </div>
+        </section>
+
+        <!-- Wildlife Model (Optional) -->
+        <section class="bg-white/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-6 shadow-card dark:shadow-card-dark backdrop-blur-sm">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                🦊 Wildlife Classifier (Optional)
+            </h3>
+
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                The wildlife classifier can identify non-bird animals like squirrels, raccoons, foxes, and more.
+                Use the "Identify Animal" button on detections to classify them as wildlife.
+            </p>
+
+            <!-- Wildlife Model Status -->
+            <div class="p-3 rounded-lg {wildlifeStatus?.enabled
+                ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800'
+                : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'}">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        {#if wildlifeStatus?.enabled}
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <span class="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                                Wildlife Model Ready ({wildlifeStatus.labels_count} species)
+                            </span>
+                        {:else}
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                            <span class="text-sm font-medium text-amber-700 dark:text-amber-400">
+                                Wildlife Model Not Installed
+                            </span>
+                        {/if}
+                    </div>
+                    {#if !wildlifeStatus?.enabled}
+                        <button
+                            onclick={handleDownloadWildlifeModel}
+                            disabled={downloadingWildlifeModel}
+                            class="px-3 py-1.5 text-sm font-medium rounded-lg
+                                   bg-amber-500 hover:bg-amber-600 text-white
+                                   transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {#if downloadingWildlifeModel}
+                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Downloading...
+                            {:else}
+                                Download Wildlife Model
+                            {/if}
+                        </button>
+                    {/if}
+                </div>
+                {#if wildlifeStatus?.error && !downloadingWildlifeModel}
+                    <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                        {wildlifeStatus.error}
+                    </p>
+                {/if}
+                {#if downloadingWildlifeModel}
+                    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                        Downloading EfficientNet-Lite4 model (~50MB). This may take a moment...
+                    </p>
+                {/if}
+            </div>
+
+            <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                This model uses EfficientNet-Lite4 trained on ImageNet for general animal classification.
+                Inference runs on CPU and may take 2-3 seconds per image.
+            </p>
         </section>
 
         <!-- Database Maintenance -->

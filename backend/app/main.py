@@ -147,6 +147,130 @@ async def classifier_labels():
     """Return the list of species labels from the classifier model."""
     return {"labels": classifier_service.labels}
 
+@app.get("/api/classifier/wildlife/status")
+async def wildlife_classifier_status():
+    """Return the status of the wildlife classifier model."""
+    return classifier_service.get_wildlife_status()
+
+@app.get("/api/classifier/wildlife/labels")
+async def wildlife_classifier_labels():
+    """Return the list of labels from the wildlife classifier model."""
+    return {"labels": classifier_service.get_wildlife_labels()}
+
+@app.post("/api/classifier/wildlife/download")
+async def download_wildlife_model():
+    """Download a general wildlife/animal classifier model.
+
+    Uses EfficientNet-Lite4 trained on ImageNet-1000 which includes many animal classes.
+    This larger model offers better accuracy (~80.4% top-1) and is suitable for
+    occasional use where inference time (2-3s per image on CPU) is acceptable.
+    """
+    import httpx
+    import tarfile
+    import io
+    from pathlib import Path
+
+    # EfficientNet-Lite4: Best accuracy in the Lite family (~80.4% top-1 on ImageNet)
+    # Each checkpoint contains FP32 and INT8 quantized TFLite models
+    # We use INT8 for smaller size and faster CPU inference
+    MODEL_TAR_URL = "https://storage.googleapis.com/cloud-tpu-checkpoints/efficientnet/lite/efficientnet-lite4.tar.gz"
+    LABELS_URL = "https://storage.googleapis.com/download.tensorflow.org/data/ImageNetLabels.txt"
+
+    # Use persistent /data/models directory
+    models_dir = Path("/data/models")
+    models_dir.mkdir(parents=True, exist_ok=True)
+    model_path = models_dir / settings.classification.wildlife_model
+    labels_path = models_dir / settings.classification.wildlife_labels
+
+    # Check if model already exists
+    if model_path.exists() and labels_path.exists():
+        log.info("Wildlife model already exists, skipping download", path=str(model_path))
+        # Count labels
+        with open(labels_path, 'r') as f:
+            label_count = sum(1 for line in f if line.strip())
+        return {
+            "status": "ok",
+            "message": "Wildlife model already downloaded",
+            "labels_count": label_count
+        }
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=300.0) as client:
+            # Download the EfficientNet-Lite4 tar.gz archive
+            log.info("Downloading EfficientNet-Lite4 model (this may take a moment)...")
+            model_response = await client.get(MODEL_TAR_URL, headers=headers)
+            model_response.raise_for_status()
+
+            content = model_response.content
+            log.info("Downloaded archive", size_mb=len(content) / (1024 * 1024))
+
+            # Extract the INT8 quantized TFLite model from the archive
+            tflite_content = None
+            with tarfile.open(fileobj=io.BytesIO(content), mode='r:gz') as tar:
+                for member in tar.getmembers():
+                    log.debug("Archive member", name=member.name)
+                    # Look for the INT8 quantized model (smaller, faster on CPU)
+                    if 'int8' in member.name.lower() and member.name.endswith('.tflite'):
+                        f = tar.extractfile(member)
+                        if f:
+                            tflite_content = f.read()
+                            log.info("Found INT8 quantized model", name=member.name, size_mb=len(tflite_content) / (1024 * 1024))
+                            break
+
+                # If no INT8 model, try to find any .tflite file
+                if tflite_content is None:
+                    for member in tar.getmembers():
+                        if member.name.endswith('.tflite'):
+                            f = tar.extractfile(member)
+                            if f:
+                                tflite_content = f.read()
+                                log.info("Found TFLite model", name=member.name, size_mb=len(tflite_content) / (1024 * 1024))
+                                break
+
+            if tflite_content is None:
+                raise Exception("No TFLite model found in archive")
+
+            with open(model_path, 'wb') as f:
+                f.write(tflite_content)
+            log.info("Wildlife model saved", path=str(model_path))
+
+            # Download ImageNet labels
+            log.info("Downloading ImageNet labels...")
+            labels_response = await client.get(LABELS_URL, headers=headers)
+            labels_response.raise_for_status()
+
+            # ImageNet labels file has 1001 classes (index 0 is "background")
+            lines = labels_response.text.strip().split('\n')
+            processed_labels = []
+            for line in lines:
+                label = line.strip()
+                if label:
+                    processed_labels.append(label)
+
+            with open(labels_path, 'w') as f:
+                for label in processed_labels:
+                    f.write(f"{label}\n")
+
+            log.info("Wildlife model downloaded and ready",
+                     labels_count=len(processed_labels),
+                     model_size_mb=len(tflite_content) / (1024 * 1024))
+            return {
+                "status": "ok",
+                "message": f"Downloaded EfficientNet-Lite4 wildlife model with {len(processed_labels)} labels",
+                "labels_count": len(processed_labels)
+            }
+
+    except httpx.HTTPStatusError as e:
+        log.error("Failed to download wildlife model - HTTP error", status=e.response.status_code)
+        return {"status": "error", "message": f"HTTP {e.response.status_code}: Download failed"}
+    except Exception as e:
+        log.error("Failed to download wildlife model", error=str(e))
+        return {"status": "error", "message": str(e)}
+
 @app.post("/api/classifier/download")
 async def download_default_model():
     """Download the default bird classifier model."""

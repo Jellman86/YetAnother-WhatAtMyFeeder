@@ -1,8 +1,8 @@
 <script lang="ts">
     import DetectionCard from '../components/DetectionCard.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
-    import type { Detection } from '../api';
-    import { getThumbnailUrl, deleteDetection, hideDetection } from '../api';
+    import type { Detection, WildlifeClassification } from '../api';
+    import { getThumbnailUrl, deleteDetection, hideDetection, classifyWildlife, updateDetectionSpecies } from '../api';
 
     interface Props {
         detections: Detection[];
@@ -18,6 +18,10 @@
     let selectedSpecies = $state<string | null>(null);
     let deleting = $state(false);
     let hiding = $state(false);
+    let classifyingWildlife = $state(false);
+    let showWildlifeResults = $state(false);
+    let wildlifeResults = $state<WildlifeClassification[]>([]);
+    let applyingWildlife = $state(false);
 
     // Compute stats from current detections
     let topSpecies = $derived(() => {
@@ -73,6 +77,43 @@
 
     function viewAllEvents() {
         onnavigate?.('/events');
+    }
+
+    async function handleClassifyWildlife() {
+        if (!selectedEvent) return;
+
+        classifyingWildlife = true;
+        showWildlifeResults = false;
+        wildlifeResults = [];
+
+        try {
+            const result = await classifyWildlife(selectedEvent.frigate_event);
+            wildlifeResults = result.classifications;
+            showWildlifeResults = true;
+        } catch (e) {
+            console.error('Failed to classify wildlife', e);
+            alert('Failed to identify animal. Make sure the wildlife model is downloaded.');
+        } finally {
+            classifyingWildlife = false;
+        }
+    }
+
+    async function applyWildlifeResult(label: string) {
+        if (!selectedEvent) return;
+
+        applyingWildlife = true;
+        try {
+            await updateDetectionSpecies(selectedEvent.frigate_event, label);
+            // Update the local detection
+            selectedEvent.display_name = label;
+            showWildlifeResults = false;
+            wildlifeResults = [];
+        } catch (e) {
+            console.error('Failed to apply wildlife classification', e);
+            alert('Failed to update species');
+        } finally {
+            applyingWildlife = false;
+        }
     }
 </script>
 
@@ -213,6 +254,66 @@
                               d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     <span class="font-medium">{selectedEvent.camera_name}</span>
+                </div>
+
+                <!-- Wildlife Classification Section -->
+                <div class="mb-5">
+                    <button
+                        onclick={handleClassifyWildlife}
+                        disabled={classifyingWildlife}
+                        class="w-full px-4 py-2.5 text-sm font-medium text-amber-700 dark:text-amber-300
+                               bg-amber-50 dark:bg-amber-900/20 rounded-lg
+                               hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors
+                               disabled:opacity-50 disabled:cursor-not-allowed
+                               flex items-center justify-center gap-2"
+                    >
+                        {#if classifyingWildlife}
+                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Identifying...
+                        {:else}
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            Identify Animal
+                        {/if}
+                    </button>
+
+                    <!-- Wildlife Results Dropdown -->
+                    {#if showWildlifeResults && wildlifeResults.length > 0}
+                        <div class="mt-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
+                            <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
+                                Click a result to apply it as the species:
+                            </p>
+                            <div class="space-y-1">
+                                {#each wildlifeResults as result}
+                                    <button
+                                        onclick={() => applyWildlifeResult(result.label)}
+                                        disabled={applyingWildlife}
+                                        class="w-full text-left px-3 py-2 text-sm rounded-md
+                                               bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600
+                                               hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20
+                                               transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                                               flex items-center justify-between"
+                                    >
+                                        <span class="font-medium text-slate-700 dark:text-slate-200">{result.label}</span>
+                                        <span class="text-xs text-slate-500 dark:text-slate-400">
+                                            {(result.score * 100).toFixed(1)}%
+                                        </span>
+                                    </button>
+                                {/each}
+                            </div>
+                            <button
+                                onclick={() => { showWildlifeResults = false; wildlifeResults = []; }}
+                                class="mt-2 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                            >
+                                Dismiss results
+                            </button>
+                        </div>
+                    {/if}
                 </div>
 
                 <!-- Action buttons -->

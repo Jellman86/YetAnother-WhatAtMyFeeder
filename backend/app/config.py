@@ -35,6 +35,9 @@ class ClassificationSettings(BaseModel):
         default=["background", "Background"],
         description="Labels to relabel as 'Unknown Bird' (unidentifiable detections)"
     )
+    # Wildlife/general animal model settings
+    wildlife_model: str = Field(default="wildlife_model.tflite", description="Wildlife classification model file")
+    wildlife_labels: str = Field(default="wildlife_labels.txt", description="Wildlife labels file")
 
 class MaintenanceSettings(BaseModel):
     retention_days: int = Field(default=0, ge=0, description="Days to keep detections (0 = unlimited)")
