@@ -156,30 +156,30 @@ class ModelInstance:
                 results = results / 255.0
 
         # Check if output is already probabilities vs logits
-        # Probabilities: all values >= 0, max <= 1.0, sum close to 1.0
-        # Logits: can have negative values, or values > 2-3, sum is arbitrary
+        # Probabilities: all values in [0, 1] range (post-softmax)
+        # Logits: can have negative values or values > 1.0, need softmax
         output_sum = float(results.sum())
         output_min = float(results.min())
         output_max = float(results.max())
         log.info(f"{self.name}: Raw output stats - min={output_min:.6f}, max={output_max:.6f}, sum={output_sum:.6f}")
 
         # Detect if output looks like probabilities (post-softmax)
-        # - All values are non-negative
-        # - Max value is reasonable for a probability (< 1.5 to allow for quantization error)
-        # - Sum is somewhat close to 1.0 (0.8 to 1.2 to allow for quantization error)
-        is_probability = output_min >= 0 and output_max < 1.5 and 0.8 < output_sum < 1.2
+        # Key insight: probabilities are always in [0, 1] range
+        # Logits can be negative or > 1.0 (typically in range [-10, 10])
+        # For quantized models, sum may be < 1.0 due to precision loss, so we don't rely on sum
+        is_probability = output_min >= 0 and output_max <= 1.0
 
         if is_probability:
-            # Already probabilities, just normalize to ensure they sum to 1.0
-            # This handles quantization error without applying softmax
-            if abs(output_sum - 1.0) > 0.001:
+            # Already probabilities - normalize to ensure they sum to 1.0
+            # This handles quantization error without incorrectly applying softmax
+            if output_sum > 0:
                 log.info(f"{self.name}: Normalizing probabilities (sum={output_sum:.4f})")
                 results = results / output_sum
             else:
-                log.info(f"{self.name}: Output is probabilities (sum={output_sum:.4f}), no adjustment needed")
+                log.warning(f"{self.name}: Output sum is zero, cannot normalize")
         else:
             # Logits - apply softmax to convert to probabilities
-            log.info(f"{self.name}: Applying softmax to logits (sum was {output_sum:.4f})")
+            log.info(f"{self.name}: Applying softmax to logits (min={output_min:.4f}, max={output_max:.4f})")
             exp_results = np.exp(results - np.max(results))
             results = exp_results / np.sum(exp_results)
             log.info(f"{self.name}: After softmax - max={float(results.max()):.6f}")
